@@ -1,0 +1,7 @@
+POST http://127.0.0.1:8000/api/v1/articles
+Content-Type: application/json
+Accept: application/json
+
+{
+    "url": "https://www.bbc.com/news/articles/c87vg9x5d7do"
+}
