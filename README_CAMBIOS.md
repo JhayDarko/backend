@@ -239,3 +239,27 @@ Registro breve de modificaciones del proyecto.
 - Respuestas `202 Accepted` para análisis enviados a la cola.
 - Restricción única para evitar análisis duplicados por artículo.
 - Respuestas JSON con caracteres Unicode sin escapar (`ñ`, tildes y otros caracteres especiales).
+
+## v1.4.0 - 2026-09-30
+
+### Implementado
+
+- Inicialización del repositorio Frontend en el directorio `frontend`.
+- Configurado framework **React 19** con **Vite** y **TypeScript**.
+- Configurado e integrado **Tailwind CSS v4** mediante `@tailwindcss/vite` para un desarrollo de UI rápido y reactivo.
+
+### Próximos pasos
+- Desarrollar los componentes de Ingesta, Polling y Dashboard para consumir la API de Laravel.
+
+## v1.4.1 - 2026-09-30
+
+### Implementado en el Frontend
+
+- **Capa de Servicios**:
+  - Configurado `axios` y definidos los contratos (Interfaces TS) completos para los endpoints `/api/v1/analyses`, `/status` y la respuesta completa de análisis (Claims, Evidencias, Scores).
+- **Vistas Completadas**:
+  - `Home.tsx`: Vista de Ingesta con UI de pestañas para URLs o texto plano. Manejo de estado de carga y errores centralizado.
+  - `Analysis.tsx`: Pantalla de *Polling* en tiempo real (`setInterval` cada 3s). Muestra un stepper visual de las fases asíncronas del backend. Redirección automática al finalizar.
+  - `Dashboard.tsx`: Vista de Resultados definitiva. Implementado el semáforo visual de credibilidad, indicador radial de score, bloque destacado para la "Síntesis del Analista", y componente expansible (Acordeón) para explorar las afirmaciones extraídas y sus respectivas evidencias web con hipervínculos cruzados.
+- **Documentación**:
+  - Creado `frontend/README.md` detallando la arquitectura y puesta en marcha del frontend.

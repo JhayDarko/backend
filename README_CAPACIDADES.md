@@ -236,20 +236,21 @@ php artisan serve
 
 ---
 
-## 8. Hoja de Ruta para MVP Completo (Front-End)
+## 8. Frontend y Hoja de Ruta
 
-Con el backend completado al **100% para las funciones del MVP**, los pasos pendientes para tener el producto final disponible para usuarios son:
+El desarrollo del **Frontend SPA** se encuentra en marcha en el directorio `frontend/`. 
+El stack tecnológico elegido es **React 19 + TypeScript + Vite + Tailwind CSS v4**.
 
-1. **Frontend SPA (Angular / Vue / React)**:
-   * **Vista 1 (Entrada)**: Caja de texto con pestañas para "Pegar Enlace" o "Pegar Texto / Rumor".
-   * **Vista 2 (Progreso)**: Barra de carga conectada a `GET /api/v1/analyses/{id}/status` reflejando las fases en tiempo real.
-   * **Vista 3 (Resultados)**:
-     * Semáforo de veredicto (`credible`, `probably_credible`, `inconclusive`, `probably_misleading`, `false`).
-     * Medidor radial con el puntaje de credibilidad (0-100).
-     * Acordeón de claims analizados con sus fuentes y enlaces directos a las evidencias.
-     * Gráfico de radar o barras con los 7 subscores.
-     * Resumen explicativo generado por el analista.
-   * **Vista 4 (Historial)**: Buscador de noticias ya verificadas para consumo público.
-2. **OCR para Imágenes (Fase 1.1)**:
-   * Extracción de texto de capturas de pantalla de chats o redes sociales mediante Gemini Vision o Tesseract.
+### Vistas a desarrollar:
+1. **Vista de Ingesta (Entrada)**: Caja de texto con pestañas para "Pegar Enlace" o "Pegar Texto / Rumor".
+2. **Vista de Progreso (Polling)**: Barra de carga interactiva conectada a `GET /api/v1/analyses/{id}/status` reflejando las fases en tiempo real.
+3. **Vista de Resultados (Dashboard)**:
+   * Semáforo de veredicto (`credible`, `probably_credible`, `inconclusive`, `probably_misleading`, `false`).
+   * Medidor radial con el puntaje de credibilidad (0-100).
+   * Acordeón de claims analizados con sus fuentes y enlaces directos a las evidencias.
+   * Gráfico de radar o barras con los 7 subscores.
+   * Resumen explicativo generado por el analista cualitativo.
+4. **Vista de Historial/Exploración**: Buscador de noticias ya verificadas para consumo público.
 
+### Futuras Mejoras (Post-MVP)
+* **OCR para Imágenes**: Extracción de texto de capturas de pantalla de chats o redes sociales mediante Gemini Vision.
