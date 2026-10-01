@@ -45,7 +45,7 @@ final class ArticleAnalysisController extends Controller
             ]);
         }
 
-        AnalyzeArticleJob::dispatch($analysis->id);
+        AnalyzeArticleJob::dispatch($analysis->id)->onConnection('redis');
 
         return response()->json([
             'data' => new AnalysisResource($analysis),

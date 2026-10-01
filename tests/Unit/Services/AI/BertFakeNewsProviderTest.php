@@ -16,7 +16,7 @@ class BertFakeNewsProviderTest extends TestCase
 
         config([
             'ai.classifier.provider' => 'bert',
-            'ai.bert.base_url' => 'http://ml-service:8000',
+            'ai.bert.base_url' => 'http://127.0.0.1:8001',
             'ai.timeout' => 30,
         ]);
     }
@@ -24,7 +24,7 @@ class BertFakeNewsProviderTest extends TestCase
     public function test_it_returns_normalized_real_label_and_confidence(): void
     {
         Http::fake([
-            'http://ml-service:8000/classify' => Http::response([
+            'http://127.0.0.1:8001/classify' => Http::response([
                 'label' => 'REAL',
                 'confidence' => 0.87,
                 'probability' => 0.87,
@@ -43,7 +43,7 @@ class BertFakeNewsProviderTest extends TestCase
     public function test_it_rejects_invalid_labels(): void
     {
         Http::fake([
-            'http://ml-service:8000/classify' => Http::response([
+            'http://127.0.0.1:8001/classify' => Http::response([
                 'label' => 'UNKNOWN',
                 'confidence' => 0.5,
                 'probability' => 0.5,

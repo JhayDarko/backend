@@ -69,7 +69,7 @@ final class AnalysisController extends Controller
             'started_at' => null,
         ]);
 
-        AnalyzeArticleJob::dispatch($analysis->id);
+        AnalyzeArticleJob::dispatch($analysis->id)->onConnection('redis');
 
         return response()->json([
             'message' => 'Analysis has been re-queued for processing.',

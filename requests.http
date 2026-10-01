@@ -1,1 +1,19 @@
-POST http://127.0.0.1:8000/api/v1/articles/1/analyze
+### Crear artículo
+POST http://127.0.0.1:8000/api/v1/articles
+Content-Type: application/json
+Accept: application/json
+
+{
+    "url": "https://www.bbc.com/mundo/articles/cq0lrl6z5rw1o"
+}
+
+### Analizar artículo
+POST  http://127.0.0.1:8000/api/v1/articles/18/analyze
+
+### Obtener estado de análisis
+GET http://127.0.0.1:8000/api/v1/analyses/22/status
+Accept: application/json
+
+### Obtener resultados del análisis
+GET http://127.0.0.1:8000/api/v1/analyses/22
+Accept: application/json

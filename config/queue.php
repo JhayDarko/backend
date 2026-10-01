@@ -68,7 +68,9 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Must be higher than the longest possible AI job (BERT + Gemini can take 2-5 min).
+            // If this is too low, Redis will re-queue a running job causing duplicate processing.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 600),
             'block_for' => null,
             'after_commit' => false,
         ],

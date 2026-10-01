@@ -19,6 +19,8 @@ class ClassifyArticleJob implements ShouldQueue
 
     public int $backoff = 10;
 
+    public int $timeout = 180;
+
     public function __construct(
         public int $analysisId,
     ) {}
@@ -98,6 +100,14 @@ class ClassifyArticleJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         $analysis = Analysis::query()->find($this->analysisId);
+
+        if ($analysis && ! $analysis->score()->exists()) {
+            $analysis->update([
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+                'completed_at' => now(),
+            ]);
+        }
 
         Log::error('ClassifyArticleJob permanently failed', [
             'analysis_id' => $this->analysisId,

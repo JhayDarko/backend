@@ -122,4 +122,36 @@ class ClassifyArticleJobTest extends TestCase
         $this->assertSame(1, $analysis->fresh()->predictions()->count());
         $this->assertSame('pending', $analysis->fresh()->status);
     }
+
+    public function test_permanent_failure_marks_analysis_as_failed(): void
+    {
+        $source = Source::query()->create([
+            'name' => 'Reuters',
+            'domain' => 'reuters.com',
+            'url' => 'https://reuters.com',
+        ]);
+
+        $article = Article::query()->create([
+            'source_id' => $source->id,
+            'url' => 'https://example.test/articulo-bert-failure',
+            'title' => 'Título de prueba',
+            'content' => 'Contenido de prueba.',
+        ]);
+
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'processing',
+            'algorithm_version' => '1.0.0',
+        ]);
+
+        $exception = new \RuntimeException('BERT service unavailable.');
+
+        (new ClassifyArticleJob($analysis->id))->failed($exception);
+
+        $analysis->refresh();
+
+        $this->assertSame('failed', $analysis->status);
+        $this->assertSame('BERT service unavailable.', $analysis->error);
+        $this->assertNotNull($analysis->completed_at);
+    }
 }

@@ -20,6 +20,8 @@ class FinalizeAnalysisJob implements ShouldQueue
 
     public int $backoff = 10;
 
+    public int $timeout = 180;
+
     public function __construct(
         public int $analysisId,
     ) {}
@@ -34,6 +36,15 @@ class FinalizeAnalysisJob implements ShouldQueue
         if (! $analysis) {
             Log::warning('FinalizeAnalysisJob skipped because analysis was not found', [
                 'analysis_id' => $this->analysisId,
+            ]);
+
+            return;
+        }
+
+        if ($analysis->status === 'failed') {
+            Log::warning('FinalizeAnalysisJob skipped because analysis has failed', [
+                'analysis_id' => $analysis->id,
+                'error' => $analysis->error,
             ]);
 
             return;

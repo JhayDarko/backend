@@ -20,6 +20,8 @@ class ExtractClaimsJob implements ShouldQueue
 
     public int $backoff = 10;
 
+    public int $timeout = 180;
+
     public function __construct(
         public int $analysisId,
     ) {}
@@ -73,10 +75,10 @@ class ExtractClaimsJob implements ShouldQueue
 
             $claims = $analysis->claims()->get();
 
-            $jobs = [new ClassifyArticleJob($analysis->id)];
+            $jobs = [new ClassifyArticleJob($analysis->id)->onConnection('redis')];
             foreach ($claims->where('verifiable', true) as $claim) {
-                $jobs[] = new VerifyClaimJob($claim->id);
-                $jobs[] = new SearchClaimEvidenceJob($claim->id);
+                $jobs[] = new VerifyClaimJob($claim->id)->onConnection('redis');
+                $jobs[] = new SearchClaimEvidenceJob($claim->id)->onConnection('redis');
             }
 
             $analysisId = $analysis->id;
@@ -84,7 +86,7 @@ class ExtractClaimsJob implements ShouldQueue
                 ->name("analysis-{$analysisId}-evidence")
                 ->allowFailures()
                 ->then(function (Batch $batch) use ($analysisId): void {
-                    FinalizeAnalysisJob::dispatch($analysisId);
+                    FinalizeAnalysisJob::dispatch($analysisId)->onConnection('redis');
                 })
                 ->catch(function (Batch $batch, Throwable $exception) use ($analysisId): void {
                     Log::warning("Batch error in evidence collection for analysis {$analysisId}", [
@@ -93,7 +95,7 @@ class ExtractClaimsJob implements ShouldQueue
                 })
                 ->finally(function (Batch $batch) use ($analysisId): void {
                     if ($batch->hasFailures()) {
-                        FinalizeAnalysisJob::dispatch($analysisId);
+                        FinalizeAnalysisJob::dispatch($analysisId)->onConnection('redis');
                     }
                 })
                 ->dispatch();

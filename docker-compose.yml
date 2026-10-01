@@ -41,8 +41,9 @@ services:
     restart: unless-stopped
     environment:
       BERT_MODEL_NAME: Juanillaberia/spanish-fake-news-classifier
+      HF_HUB_ENABLE_HF_TRANSFER: "0"
     ports:
-      - "8000:8000"
+      - "${ML_SERVICE_PORT:-8001}:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

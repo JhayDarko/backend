@@ -89,7 +89,7 @@ def classify(request: ClassificationRequest) -> ClassificationResponse:
         raise HTTPException(status_code=400, detail="Text payload is empty.")
 
     try:
-        result = classifier(text)
+        result = classifier(text, truncation=True, max_length=512)
         label, confidence = extract_prediction(result)
         model_name = request.model or MODEL_NAME
         return ClassificationResponse(

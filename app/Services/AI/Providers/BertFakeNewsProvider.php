@@ -14,12 +14,15 @@ final class BertFakeNewsProvider implements ClassifierProviderInterface
 
     private int $timeout;
 
+    private int $connectTimeout;
+
     private string $model;
 
     public function __construct()
     {
-        $this->baseUrl = rtrim((string) config('ai.bert.base_url', 'http://ml-service:8000'), '/');
-        $this->timeout = (int) config('ai.timeout', 30);
+        $this->baseUrl = rtrim((string) config('ai.bert.base_url'), '/');
+        $this->timeout = (int) config('ai.bert.timeout', (int) config('ai.timeout', 120));
+        $this->connectTimeout = (int) config('ai.bert.connect_timeout', 10);
         $this->model = (string) config('ai.bert.model', 'Juanillaberia/spanish-fake-news-classifier');
     }
 
@@ -34,6 +37,7 @@ final class BertFakeNewsProvider implements ClassifierProviderInterface
 
         try {
             $response = Http::timeout($this->timeout)
+                ->connectTimeout($this->connectTimeout)
                 ->acceptJson()
                 ->post($this->baseUrl . '/classify', $payload);
         } catch (ConnectionException $exception) {

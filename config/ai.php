@@ -35,10 +35,17 @@ return [
     | Timeout in seconds for AI provider requests.
     |
     */
-    'timeout' => (int) env('AI_PROVIDER_TIMEOUT', 60),
+    'timeout' => (int) env('AI_PROVIDER_TIMEOUT', 120),
 
     'bert' => [
-        'base_url' => env('BERT_CLASSIFIER_URL', 'http://ml-service:8000'),
+        /*
+         * From Windows (Laravel outside Docker): http://127.0.0.1:<published-port>
+         * From inside Docker (Laravel in container): http://ml-service:8000
+         * Set BERT_SERVICE_URL accordingly in .env — never hardcode the hostname.
+         */
+        'base_url' => env('BERT_SERVICE_URL', 'http://127.0.0.1:8001'),
+        'timeout' => (int) env('BERT_TIMEOUT', 120),
+        'connect_timeout' => (int) env('BERT_CONNECT_TIMEOUT', 10),
         'model' => env('BERT_CLASSIFIER_MODEL', 'Juanillaberia/spanish-fake-news-classifier'),
         'version' => env('BERT_CLASSIFIER_VERSION', '1.0.0'),
     ],

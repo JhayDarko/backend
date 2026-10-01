@@ -16,6 +16,8 @@ class AnalyzeArticleJob implements ShouldQueue
 
     public int $backoff = 10;
 
+    public int $timeout = 30;
+
     public function __construct(
         public int $analysisId
     ) {}
@@ -36,7 +38,7 @@ class AnalyzeArticleJob implements ShouldQueue
                 'article_id' => $analysis->article_id,
             ]);
 
-            ExtractClaimsJob::dispatch($analysis->id);
+            ExtractClaimsJob::dispatch($analysis->id)->onConnection('redis');
 
             Log::info('Claim extraction queued', [
                 'analysis_id' => $analysis->id,
