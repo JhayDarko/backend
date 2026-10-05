@@ -11,6 +11,17 @@ class StoreArticleRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $contentType = strtolower((string) $this->header('Content-Type'));
+
+        if (str_starts_with($contentType, 'text/plain')) {
+            $this->merge([
+                'content' => trim($this->getContent()),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [

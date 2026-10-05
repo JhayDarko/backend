@@ -14,6 +14,9 @@ final class GeminiProvider implements AiProviderInterface
 {
     private string $apiKey;
 
+    /** @var list<string> */
+    private array $apiKeys;
+
     private string $apiBaseUrl;
 
     private string $model;
@@ -30,13 +33,21 @@ final class GeminiProvider implements AiProviderInterface
     public function __construct()
     {
         $this->apiKey = (string) config('ai.gemini.api_key', '');
+        $configuredKeys = config('ai.gemini.api_keys', []);
+        $this->apiKeys = array_values(array_unique(array_filter(
+            is_array($configuredKeys) ? $configuredKeys : [$this->apiKey],
+            fn (mixed $key): bool => is_string($key) && trim($key) !== '',
+        )));
+        if ($this->apiKeys === [] && $this->apiKey !== '') {
+            $this->apiKeys = [$this->apiKey];
+        }
         $this->apiBaseUrl = rtrim((string) config('ai.gemini.api_base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
         $this->model = (string) config('ai.gemini.model', 'gemini-3.6-flash');
         $this->temperature = (float) config('ai.gemini.temperature', 0.7);
         $this->timeout = (int) config('ai.timeout', 60);
         $this->promptVersion = (string) config('ai.prompt_version', '1.0.0');
 
-        if ($this->apiKey === '') {
+        if ($this->apiKeys === []) {
             throw AiProviderException::configuration('GEMINI_API_KEY is not configured.');
         }
     }
@@ -56,17 +67,39 @@ final class GeminiProvider implements AiProviderInterface
             ...$fallbackModels,
         ], fn (mixed $model): bool => is_string($model) && $model !== '')));
 
-        foreach ($models as $model) {
-            $result = $this->tryExtractWithModel($model, $title, $content, $description);
-            if ($result !== null) {
-                return $result;
+        $lastRateLimit = null;
+
+        foreach ($this->apiKeys as $keyIndex => $apiKey) {
+            foreach ($models as $model) {
+                try {
+                    $result = $this->tryExtractWithModel($model, $apiKey, $title, $content, $description, $keyIndex);
+                    if ($result !== null) {
+                        return $result;
+                    }
+                } catch (AiProviderException $exception) {
+                    if ($exception->getCode() !== 429) {
+                        throw $exception;
+                    }
+
+                    $lastRateLimit = $exception;
+                    Log::warning('Gemini key reached its rate limit; trying another configured key or model', [
+                        'key_index' => $keyIndex + 1,
+                        'model' => $model,
+                    ]);
+
+                    break;
+                }
             }
+        }
+
+        if ($lastRateLimit instanceof AiProviderException) {
+            throw $lastRateLimit;
         }
 
         throw AiProviderException::invalidResponse('All configured Gemini models are unavailable. Please try again later.');
     }
 
-    private function tryExtractWithModel(string $model, string $title, string $content, ?string $description): ?ExtractedClaimsResponse
+    private function tryExtractWithModel(string $model, string $apiKey, string $title, string $content, ?string $description, int $keyIndex): ?ExtractedClaimsResponse
     {
         $payload = [
             'contents' => [[
@@ -79,7 +112,7 @@ final class GeminiProvider implements AiProviderInterface
                 'responseSchema' => $this->getJsonSchema(),
             ],
         ];
-        $url = "{$this->apiBaseUrl}/models/{$model}:generateContent?key={$this->apiKey}";
+        $url = "{$this->apiBaseUrl}/models/{$model}:generateContent?key={$apiKey}";
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             try {
@@ -115,6 +148,7 @@ final class GeminiProvider implements AiProviderInterface
                 Log::error('Claim extraction failed', [
                     'provider' => $this->getName(),
                     'model' => $model,
+                    'key_index' => $keyIndex + 1,
                     'error' => $exception->getMessage(),
                 ]);
                 throw $exception;
@@ -219,7 +253,9 @@ PROMPT;
     private function handleResponse(Response $response): ExtractedClaimsResponse
     {
         if ($response->status() === 429) {
-            throw AiProviderException::rateLimit((int) $response->header('Retry-After'));
+            $retryAfter = (int) ($response->header('Retry-After') ?: config('ai.rate_limit_backoff', 60));
+
+            throw AiProviderException::rateLimit($retryAfter);
         }
 
         if (in_array($response->status(), [408, 504], true)) {

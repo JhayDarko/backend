@@ -160,7 +160,7 @@ class CredibilityScoreServiceTest extends TestCase
 
         ModelPrediction::query()->create([
             'analysis_id' => $analysis->id,
-            'prediction_label' => 'FAKE',
+            'prediction_label' => 'REAL',
             'confidence_score' => 0.98,
             'probability' => 0.98,
             'model_provider' => 'bert',
@@ -216,5 +216,163 @@ class CredibilityScoreServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(40.0, $scoreResult->finalScore);
         $this->assertLessThan(65.0, $scoreResult->finalScore);
         $this->assertSame('inconclusive', $scoreResult->finalVerdict);
+    }
+
+    public function test_search_hits_without_fact_check_match_do_not_create_false_confidence(): void
+    {
+        $article = Article::query()->create([
+            'title' => 'Anuncio extraordinario no confirmado',
+            'content' => 'El Gobierno anunció una medida extraordinaria que no aparece en fuentes oficiales.',
+            'url' => null,
+        ]);
+
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'processing',
+        ]);
+
+        $claim = Claim::query()->create([
+            'analysis_id' => $analysis->id,
+            'text' => 'El Gobierno anunció una medida extraordinaria',
+            'importance' => 1.0,
+            'verifiable' => true,
+        ]);
+
+        $verification = ClaimVerification::query()->create([
+            'claim_id' => $claim->id,
+            'relation' => 'search_evidence',
+            'provider' => 'tavily',
+            'status' => 'matched',
+            'normalized_rating' => 'unknown',
+        ]);
+
+        $evidences = collect(range(1, 10))->map(fn (int $index) => Evidence::query()->create([
+            'url' => "https://source-{$index}.example.test/article",
+            'title' => "Search result {$index}",
+            'snippet' => 'Search result without a fact-check rating.',
+            'metadata' => ['domain' => "source-{$index}.example.test"],
+        ]));
+        $verification->evidences()->sync($evidences->pluck('id'));
+
+        ModelPrediction::query()->create([
+            'analysis_id' => $analysis->id,
+            'prediction_label' => 'REAL',
+            'confidence_score' => 0.85,
+            'probability' => 0.85,
+            'model_provider' => 'bert',
+            'model_name' => 'spanish-fake-news-classifier',
+        ]);
+
+        $analystSynthesis = new AnalystSynthesisResult(
+            summary: 'No existe confirmación oficial suficiente.',
+            claimEvaluations: [
+                new AnalystClaimEvaluation($claim->id, $claim->text, 'unverified', 'No hay confirmación oficial.', 0.9),
+            ],
+            consistencyScore: 0.65,
+            suggestedVerdict: 'inconclusive',
+        );
+
+        $scoreResult = $this->service->calculate(
+            $analysis,
+            new SourceAnalysisResult('unknown', 'unknown', 0.5, false),
+            $analystSynthesis,
+        );
+
+        $this->assertSame(50.0, $scoreResult->evidenceScore);
+        $this->assertSame(0.0, $scoreResult->corroborationScore);
+        $this->assertSame(50.0, $scoreResult->independenceScore);
+        $this->assertLessThan(1.0, $scoreResult->confidenceScore);
+        $this->assertNotSame('probably_credible', $scoreResult->finalVerdict);
+        $this->assertSame('unverified', $scoreResult->breakdown['claim_evaluations'][0]['stance']);
+        $this->assertSame(0.0, $scoreResult->breakdown['signals']['evidence_coverage']);
+    }
+
+    public function test_bert_and_ungrounded_analyst_claim_do_not_override_missing_evidence(): void
+    {
+        $article = Article::query()->create([
+            'title' => 'Titular viral sin fuentes',
+            'content' => 'Una afirmación extraordinaria sin enlaces ni revisiones disponibles.',
+            'url' => null,
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'processing',
+        ]);
+        $claim = Claim::query()->create([
+            'analysis_id' => $analysis->id,
+            'text' => 'El Gobierno anunció una medida nacional',
+            'importance' => 1.0,
+            'verifiable' => true,
+            'type' => 'factual',
+        ]);
+        ModelPrediction::query()->create([
+            'analysis_id' => $analysis->id,
+            'prediction_label' => 'REAL',
+            'confidence_score' => 0.99,
+            'probability' => 0.99,
+            'model_provider' => 'bert',
+            'model_name' => 'spanish-fake-news-classifier',
+        ]);
+
+        $result = $this->service->calculate(
+            $analysis,
+            new SourceAnalysisResult('unknown', 'unknown', 0.5, false),
+            new AnalystSynthesisResult(
+                summary: 'El claim parece verdadero.',
+                claimEvaluations: [new AnalystClaimEvaluation($claim->id, $claim->text, 'supported', 'Sin fuente vinculada.', 0.99)],
+                consistencyScore: 0.99,
+                suggestedVerdict: 'credible',
+            ),
+        );
+
+        $this->assertSame('inconclusive', $result->finalVerdict);
+        $this->assertSame('insufficient_evidence', $result->breakdown['truth_assessment']['label']);
+        $this->assertSame('unverified', $result->breakdown['claim_evaluations'][0]['stance']);
+        $this->assertSame(0.0, $result->breakdown['signals']['evidence_coverage']);
+    }
+
+    public function test_article_report_keeps_true_and_refuted_claims_separate(): void
+    {
+        $article = Article::query()->create([
+            'title' => 'Dos afirmaciones distintas',
+            'content' => 'Una afirmación fue confirmada y otra fue desmentida.',
+            'url' => null,
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'processing',
+        ]);
+
+        foreach ([['Afirmación respaldada', 'true'], ['Afirmación refutada', 'false']] as [$text, $rating]) {
+            $claim = Claim::query()->create([
+                'analysis_id' => $analysis->id,
+                'text' => $text,
+                'importance' => 0.8,
+                'verifiable' => true,
+                'type' => 'factual',
+            ]);
+            ClaimVerification::query()->create([
+                'claim_id' => $claim->id,
+                'relation' => 'external_fact_check',
+                'provider' => 'google_fact_check',
+                'status' => 'matched',
+                'normalized_rating' => $rating,
+                'publisher' => $rating === 'true' ? 'Fuente A' : 'Fuente B',
+                'publisher_site' => $rating === 'true' ? 'fuente-a.example' : 'fuente-b.example',
+                'fact_check_url' => "https://{$rating}.example/review",
+            ]);
+        }
+
+        $result = $this->service->calculate(
+            $analysis,
+            new SourceAnalysisResult('unknown', 'unknown', 0.5, false),
+        );
+        $claimResults = collect($result->breakdown['claim_evaluations'])->keyBy('claim_text');
+
+        $this->assertSame('supported', $claimResults['Afirmación respaldada']['stance']);
+        $this->assertSame('refuted', $claimResults['Afirmación refutada']['stance']);
+        $this->assertSame('inconclusive', $result->finalVerdict);
+        $this->assertSame('partially_true', $result->breakdown['truth_assessment']['label']);
+        $this->assertStringContainsString('sin verificar', strtolower($result->breakdown['analyst_summary']));
     }
 }

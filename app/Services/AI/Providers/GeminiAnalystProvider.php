@@ -21,6 +21,9 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
 {
     private string $apiKey;
 
+    /** @var list<string> */
+    private array $apiKeys;
+
     private string $apiBaseUrl;
 
     private string $model;
@@ -32,6 +35,14 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
     public function __construct()
     {
         $this->apiKey = config('ai.gemini.api_key') ?? '';
+        $configuredKeys = config('ai.gemini.api_keys', []);
+        $this->apiKeys = array_values(array_unique(array_filter(
+            is_array($configuredKeys) ? $configuredKeys : [$this->apiKey],
+            fn (mixed $key): bool => is_string($key) && trim($key) !== '',
+        )));
+        if ($this->apiKeys === [] && $this->apiKey !== '') {
+            $this->apiKeys = [$this->apiKey];
+        }
         $this->apiBaseUrl = config('ai.gemini.api_base_url', 'https://generativelanguage.googleapis.com/v1beta');
         $this->model = config('ai.gemini.model', 'gemini-2.0-flash');
         $this->temperature = (float) config('ai.gemini.temperature', 0.2); // Lower temperature for analytical synthesis
@@ -53,7 +64,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         ?ModelPrediction $prediction,
         SourceAnalysisResult $sourceAnalysis,
     ): AnalystSynthesisResult {
-        if (! $this->apiKey) {
+        if ($this->apiKeys === []) {
             throw AiProviderException::configuration('GEMINI_API_KEY is not configured.');
         }
 
@@ -68,14 +79,34 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
 
         $modelsToTry = array_unique(array_merge([$this->model], self::FALLBACK_MODELS));
 
-        foreach ($modelsToTry as $attemptModel) {
-            $result = $this->trySynthesizeWithModel(
-                $attemptModel, $article, $claims, $verifications, $evidences, $prediction, $sourceAnalysis
-            );
+        $lastRateLimit = null;
+        foreach ($this->apiKeys as $keyIndex => $apiKey) {
+            foreach ($modelsToTry as $attemptModel) {
+                try {
+                    $result = $this->trySynthesizeWithModel(
+                        $attemptModel, $apiKey, $article, $claims, $verifications, $evidences, $prediction, $sourceAnalysis
+                    );
 
-            if ($result !== null) {
-                return $result;
+                    if ($result !== null) {
+                        return $result;
+                    }
+                } catch (AiProviderException $exception) {
+                    if ($exception->getCode() !== 429) {
+                        throw $exception;
+                    }
+
+                    $lastRateLimit = $exception;
+                    Log::warning('Gemini analyst key reached its rate limit; trying the next configured key', [
+                        'key_index' => $keyIndex + 1,
+                        'model' => $attemptModel,
+                    ]);
+                    break;
+                }
             }
+        }
+
+        if ($lastRateLimit instanceof AiProviderException) {
+            throw $lastRateLimit;
         }
 
         throw AiProviderException::invalidResponse(
@@ -89,6 +120,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
      */
     private function trySynthesizeWithModel(
         string $model,
+        string $apiKey,
         Article $article,
         Collection $claims,
         Collection $verifications,
@@ -111,7 +143,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
                 ],
             ];
 
-            $url = "{$this->apiBaseUrl}/models/{$model}:generateContent?key={$this->apiKey}";
+            $url = "{$this->apiBaseUrl}/models/{$model}:generateContent?key={$apiKey}";
 
             $maxRetries = 3;
 
@@ -196,31 +228,40 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         ?ModelPrediction $prediction,
         SourceAnalysisResult $sourceAnalysis,
     ): string {
-        $claimsData = $claims->map(fn (Claim $c) => [
-            'id' => $c->id,
-            'text' => $c->text,
-            'importance' => $c->importance,
-            'verifiable' => $c->verifiable,
-            'type' => $c->type,
-        ])->values()->all();
+        $claimsData = $claims->map(function (Claim $claim) use ($verifications): array {
+            $claimVerifications = $verifications->where('claim_id', $claim->id);
+            $claimEvidence = $claimVerifications
+                ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
+                ->unique('url')
+                ->map(fn (Evidence $evidence): array => [
+                    'title' => $evidence->title,
+                    'url' => $evidence->url,
+                    'snippet' => $evidence->snippet,
+                    'domain' => $evidence->metadata['domain'] ?? parse_url((string) $evidence->url, PHP_URL_HOST),
+                    'provider' => $evidence->metadata['provider'] ?? null,
+                ])
+                ->values()
+                ->all();
 
-        $verificationsData = $verifications->map(fn (ClaimVerification $v) => [
-            'claim_id' => $v->claim_id,
-            'provider' => $v->provider,
-            'status' => $v->status,
-            'publisher' => $v->publisher,
-            'fact_check_title' => $v->fact_check_title,
-            'normalized_rating' => $v->normalized_rating,
-            'raw_rating' => $v->raw_rating,
-        ])->values()->all();
-
-        $evidencesData = $evidences->map(fn (Evidence $e) => [
-            'title' => $e->title,
-            'url' => $e->url,
-            'snippet' => $e->snippet,
-            'domain' => $e->metadata['domain'] ?? null,
-            'source_name' => $e->metadata['source_name'] ?? null,
-        ])->values()->all();
+            return [
+                'id' => $claim->id,
+                'text' => $claim->text,
+                'importance' => $claim->importance,
+                'verifiable' => $claim->verifiable,
+                'type' => $claim->type,
+                'context' => $claim->context,
+                'verifications' => $claimVerifications->map(fn (ClaimVerification $verification): array => [
+                    'provider' => $verification->provider,
+                    'relation' => $verification->relation,
+                    'status' => $verification->status,
+                    'publisher' => $verification->publisher,
+                    'rating' => $verification->normalized_rating,
+                    'review_title' => $verification->fact_check_title,
+                    'review_url' => $verification->fact_check_url,
+                ])->values()->all(),
+                'evidence' => $claimEvidence,
+            ];
+        })->values()->all();
 
         $bertData = $prediction ? [
             'prediction_label' => $prediction->prediction_label,
@@ -240,8 +281,6 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
             'source_analysis' => $sourceAnalysis->toArray(),
             'bert_prediction' => $bertData,
             'claims' => $claimsData,
-            'claim_verifications' => $verificationsData,
-            'evidences' => $evidencesData,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         return <<<PROMPT
@@ -250,10 +289,16 @@ Analiza la credibilidad del siguiente artículo a partir EXCLUSIVAMENTE de los d
 
 REGLAS CRÍTICAS:
 1. NO inventes hechos, URLs o fuentes que no estén en el contexto proporcionado.
-2. Si no hay suficiente evidencia para confirmar o refutar un claim, indícalo como 'unverified' o 'mixed'.
-3. Evalúa la consistencia interna entre los claims y la coherencia con las evidencias recopiladas.
-4. Detecta falacias lógicas, sesgos notorios o red flags si los hay en el texto del artículo.
-5. Devuelve un JSON estructurado con el formato requerido.
+2. Cada claim tiene su propia lista de verificaciones y evidencias; no atribuyas la evidencia de otro claim.
+3. Un resultado de búsqueda es una pista, no prueba de verdad. Un status 'no_match' no confirma ni refuta.
+4. Usa 'supported' o 'refuted' solo cuando la evidencia vinculada lo sustente directamente; en caso contrario usa 'mixed' o 'unverified'.
+5. Si fact-checkers discrepan, marca el claim como 'mixed' y explica el desacuerdo.
+6. Evalúa todos los claims factual/verificables recibidos, conservando exactamente sus IDs; no inventes ni omitas claims.
+7. Mantén baja la confianza si la evidencia es indirecta, antigua, escasa o no corresponde exactamente a la afirmación.
+8. El BERT es una señal auxiliar de estilo y no demuestra por sí solo que un hecho sea verdadero o falso.
+9. El resumen debe distinguir lo confirmado, refutado, mixto y no verificado; no conviertas falta de resultados en prueba de falsedad.
+10. Detecta falacias, sesgos y señales de alerta como contexto, nunca como prueba factual.
+11. Devuelve un JSON estructurado con el formato requerido.
 
 CONTEXTO DE ANÁLISIS:
 {$contextJson}
@@ -342,7 +387,8 @@ PROMPT;
     private function handleResponse(Response $response): AnalystSynthesisResult
     {
         if ($response->status() === 429) {
-            throw AiProviderException::rateLimit('Gemini API rate limit exceeded.');
+            $retryAfter = (int) ($response->header('Retry-After') ?: config('ai.rate_limit_backoff', 60));
+            throw AiProviderException::rateLimit($retryAfter);
         }
 
         if ($response->failed()) {

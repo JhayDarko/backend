@@ -115,6 +115,7 @@ class FinalizeAnalysisJob implements ShouldQueue
             // 5. Update Analysis record to completed
             $analysis->update([
                 'status' => 'completed',
+                'algorithm_version' => $scoreResult->algorithmVersion,
                 'credibility_score' => $scoreResult->finalScore,
                 'confidence_score' => $scoreResult->confidenceScore,
                 'final_verdict' => $scoreResult->finalVerdict,

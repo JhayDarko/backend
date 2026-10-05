@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Contracts\AiProviderInterface;
+use App\Exceptions\AiProviderException;
 use App\Models\Analysis;
 use App\Services\Verification\ClaimExtractionService;
 use Illuminate\Bus\Batch;
@@ -16,9 +17,9 @@ class ExtractClaimsJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 3;
+    public int $tries = 4;
 
-    public int $backoff = 10;
+    public array $backoff = [60, 180, 600, 900];
 
     public int $timeout = 180;
 
@@ -118,6 +119,15 @@ class ExtractClaimsJob implements ShouldQueue
                 'article_id' => $article->id,
                 'error' => $exception->getMessage(),
             ]);
+
+            if ($exception instanceof AiProviderException && $exception->getCode() === 402) {
+                Log::warning('ExtractClaimsJob stopped retrying because an AI provider has no available quota', [
+                    'analysis_id' => $analysis->id,
+                    'article_id' => $article->id,
+                ]);
+
+                return;
+            }
 
             throw $exception;
         }

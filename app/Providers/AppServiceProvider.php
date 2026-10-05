@@ -8,6 +8,7 @@ use App\Contracts\ClassifierProviderInterface;
 use App\Contracts\FactCheck\FactCheckProviderInterface;
 use App\Contracts\Search\SearchProviderInterface;
 use App\Services\AI\Providers\BertFakeNewsProvider;
+use App\Services\AI\Providers\FallbackAiProvider;
 use App\Services\AI\Providers\GeminiAnalystProvider;
 use App\Services\AI\Providers\GeminiProvider;
 use App\Services\FactCheck\GoogleFactCheckProvider;
@@ -21,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(AiProviderInterface::class, GeminiProvider::class);
+        $this->app->bind(AiProviderInterface::class, FallbackAiProvider::class);
         $this->app->bind(AnalystProviderInterface::class, GeminiAnalystProvider::class);
         $this->app->bind(ClassifierProviderInterface::class, BertFakeNewsProvider::class);
         $this->app->bind(FactCheckProviderInterface::class, GoogleFactCheckProvider::class);

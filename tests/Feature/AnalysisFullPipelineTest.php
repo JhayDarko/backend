@@ -124,6 +124,18 @@ final class AnalysisFullPipelineTest extends TestCase
             'algorithm_version' => '1.0.0',
             'metadata' => [
                 'summary' => 'Alta credibilidad confirmada por múltiples fuentes.',
+                'analyst_summary' => 'Las afirmaciones principales cuentan con revisiones directas.',
+                'truth_assessment' => ['label' => 'mostly_true', 'display' => 'Mayormente cierta'],
+                'verdict_rationale' => 'La cobertura de evidencia es suficiente.',
+                'signals' => ['evidence_coverage' => 1.0, 'fact_check_coverage' => 0.75],
+                'claim_evaluations' => [[
+                    'claim_id' => 1,
+                    'claim_text' => 'El PIB creció.',
+                    'stance' => 'supported',
+                    'conclusion' => 'Respaldado por revisiones disponibles.',
+                    'reasoning' => 'Una revisión directa confirma el dato.',
+                    'evidence' => [],
+                ]],
             ],
         ]);
 
@@ -159,6 +171,12 @@ final class AnalysisFullPipelineTest extends TestCase
                     'transparency_score',
                     'final_score',
                     'metadata',
+                    'summary',
+                    'truth_assessment',
+                    'verdict_rationale',
+                    'evidence_coverage',
+                    'fact_check_coverage',
+                    'claim_evaluations',
                 ],
                 'predictions' => [
                     '*' => [
@@ -174,6 +192,9 @@ final class AnalysisFullPipelineTest extends TestCase
 
         $response->assertJsonPath('data.final_verdict', 'credible');
         $response->assertJsonPath('data.score.final_score', '92.50');
+        $response->assertJsonPath('data.score.summary', 'Las afirmaciones principales cuentan con revisiones directas.');
+        $response->assertJsonPath('data.score.truth_assessment.label', 'mostly_true');
+        $response->assertJsonPath('data.score.claim_evaluations.0.stance', 'supported');
         $response->assertJsonPath('data.predictions.0.prediction_label', 'REAL');
     }
 }

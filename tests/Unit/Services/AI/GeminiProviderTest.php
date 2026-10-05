@@ -20,6 +20,7 @@ class GeminiProviderTest extends TestCase
 
         // Mock configuration
         config(['ai.gemini.api_key' => 'test-api-key']);
+        config(['ai.gemini.api_keys' => ['test-api-key']]);
         config(['ai.gemini.api_base_url' => 'https://generativelanguage.googleapis.com/v1beta']);
         config(['ai.gemini.model' => 'gemini-2.0-flash']);
         config(['ai.gemini.temperature' => 0.7]);
@@ -107,6 +108,7 @@ class GeminiProviderTest extends TestCase
         $this->expectExceptionMessage('GEMINI_API_KEY is not configured');
 
         config(['ai.gemini.api_key' => '']);
+        config(['ai.gemini.api_keys' => []]);
 
         new GeminiProvider();
     }
@@ -129,6 +131,46 @@ class GeminiProviderTest extends TestCase
             'Title',
             'Content'
         );
+    }
+
+    #[Test]
+    public function it_rotates_to_a_second_api_key_after_rate_limit(): void
+    {
+        config([
+            'ai.gemini.api_key' => 'gemini-key-1',
+            'ai.gemini.api_keys' => ['gemini-key-1', 'gemini-key-2'],
+        ]);
+
+        $provider = new GeminiProvider();
+
+        $validResponse = [
+            'candidates' => [[
+                'content' => ['parts' => [['text' => json_encode([
+                    'summary' => 'Fallback Gemini summary.',
+                    'claims' => [[
+                        'text' => 'La afirmación es verificable.',
+                        'importance' => 0.8,
+                        'verifiable' => true,
+                        'type' => 'factual',
+                        'context' => 'Contexto de prueba.',
+                    ]],
+                    'entities' => [],
+                    'sources' => [],
+                    'red_flags' => [],
+                ])]]],
+            ]],
+        ];
+
+        Http::fake([
+            '*key=gemini-key-1*' => Http::response(['error' => ['message' => 'quota']], 429),
+            '*key=gemini-key-2*' => Http::response($validResponse, 200),
+        ]);
+
+        $result = $provider->extractClaims('Title', 'Content');
+
+        $this->assertSame('Fallback Gemini summary.', $result->summary);
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), 'key=gemini-key-1'));
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), 'key=gemini-key-2'));
     }
 
     #[Test]

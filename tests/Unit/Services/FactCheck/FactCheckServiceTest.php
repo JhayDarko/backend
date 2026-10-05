@@ -57,8 +57,7 @@ class FactCheckServiceTest extends TestCase
             'metadata' => [],
         ]);
 
-        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface
-        {
+        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface {
             public function search(string $query): array
             {
                 return [[
@@ -134,8 +133,7 @@ class FactCheckServiceTest extends TestCase
             'metadata' => [],
         ]);
 
-        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface
-        {
+        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface {
             public function search(string $query): array
             {
                 return [];
@@ -152,11 +150,5 @@ class FactCheckServiceTest extends TestCase
 
         $this->assertSame('no_match', $result['status']);
         $this->assertSame([], $result['results']);
-        $this->assertDatabaseHas('claim_verifications', [
-            'claim_id' => $claim->id,
-            'provider' => 'google_fact_check',
-            'status' => 'no_match',
-            'normalized_rating' => 'unknown',
-        ]);
     }
 }

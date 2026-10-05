@@ -3,6 +3,7 @@
 namespace Tests\Unit\Jobs;
 
 use App\Contracts\AiProviderInterface;
+use App\Exceptions\AiProviderException;
 use App\Jobs\AnalyzeArticleJob;
 use App\Jobs\ClassifyArticleJob;
 use App\Jobs\ExtractClaimsJob;
@@ -231,5 +232,50 @@ class ExtractClaimsJobTest extends TestCase
                 && $jobs->contains(fn ($job) => $job instanceof VerifyClaimJob && $claimIds->contains($job->claimId))
                 && $jobs->contains(fn ($job) => $job instanceof SearchClaimEvidenceJob && $claimIds->contains($job->claimId));
         });
+    }
+
+    public function test_extract_claims_job_does_not_retry_when_provider_quota_is_exhausted(): void
+    {
+        Bus::fake();
+        $this->app->instance(AiProviderInterface::class, new class implements AiProviderInterface
+        {
+            public function extractClaims(string $title, string $content, ?string $description = null): ExtractedClaimsResponse
+            {
+                throw AiProviderException::quotaExhausted('OpenAI', 'You have no credits remaining.');
+            }
+
+            public function getName(): string
+            {
+                return 'openai';
+            }
+
+            public function getModel(): string
+            {
+                return 'gpt-4o-mini';
+            }
+        });
+
+        $source = Source::query()->create([
+            'name' => 'Test source',
+            'domain' => 'example.test',
+            'url' => 'https://example.test',
+        ]);
+        $article = Article::query()->create([
+            'source_id' => $source->id,
+            'url' => null,
+            'title' => 'Noticia de prueba',
+            'content' => 'Contenido de noticia suficientemente largo para extracción.',
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'pending',
+        ]);
+
+        (new ExtractClaimsJob($analysis->id))->handle(new ClaimExtractionService());
+
+        $analysis->refresh();
+        $this->assertSame('failed', $analysis->status);
+        $this->assertStringContainsString('quota is exhausted', $analysis->error);
+        Bus::assertNothingBatched();
     }
 }

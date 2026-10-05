@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'algorithm_version' => env('SCORING_ALGORITHM_VERSION', '1.0.0'),
+    'algorithm_version' => env('SCORING_ALGORITHM_VERSION', '1.2.0'),
 
     /*
     |--------------------------------------------------------------------------
@@ -13,13 +13,13 @@ return [
     |
     */
     'weights' => [
-        'evidence' => (float) env('SCORING_WEIGHT_EVIDENCE', 0.22),
-        'language' => (float) env('SCORING_WEIGHT_LANGUAGE', 0.18),
-        'source_quality' => (float) env('SCORING_WEIGHT_SOURCE', 0.15),
-        'corroboration' => (float) env('SCORING_WEIGHT_CORROBORATION', 0.15),
-        'independence' => (float) env('SCORING_WEIGHT_INDEPENDENCE', 0.10),
-        'consistency' => (float) env('SCORING_WEIGHT_CONSISTENCY', 0.12),
-        'transparency' => (float) env('SCORING_WEIGHT_TRANSPARENCY', 0.08),
+        'evidence' => (float) env('SCORING_WEIGHT_EVIDENCE', 0.72),
+        'language' => (float) env('SCORING_WEIGHT_LANGUAGE', 0.03),
+        'source_quality' => (float) env('SCORING_WEIGHT_SOURCE', 0.05),
+        'corroboration' => (float) env('SCORING_WEIGHT_CORROBORATION', 0.12),
+        'independence' => (float) env('SCORING_WEIGHT_INDEPENDENCE', 0.03),
+        'consistency' => (float) env('SCORING_WEIGHT_CONSISTENCY', 0.05),
+        'transparency' => (float) env('SCORING_WEIGHT_TRANSPARENCY', 0.00),
     ],
 
     /*
@@ -36,6 +36,14 @@ return [
         'inconclusive' => 45.0,
         'probably_misleading' => 25.0,
     ],
+
+    'minimum_evidence_coverage' => (float) env('SCORING_MIN_EVIDENCE_COVERAGE', 0.60),
+    'credible_coverage' => (float) env('SCORING_CREDIBLE_COVERAGE', 0.80),
+    'credible_fact_check_coverage' => (float) env('SCORING_CREDIBLE_FACT_CHECK_COVERAGE', 0.50),
+    'probably_credible_coverage' => (float) env('SCORING_PROBABLY_CREDIBLE_COVERAGE', 0.70),
+    'probably_misleading_coverage' => (float) env('SCORING_PROBABLY_MISLEADING_COVERAGE', 0.65),
+    'false_fact_check_coverage' => (float) env('SCORING_FALSE_FACT_CHECK_COVERAGE', 0.50),
+    'false_max_score' => (float) env('SCORING_FALSE_MAX_SCORE', 25.0),
 
     /*
     |--------------------------------------------------------------------------

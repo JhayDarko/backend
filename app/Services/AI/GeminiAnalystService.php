@@ -31,15 +31,13 @@ class GeminiAnalystService
 
         $verifications = \App\Models\ClaimVerification::query()
             ->whereIn('claim_id', $claimIds)
+            ->with('evidences')
             ->get();
 
-        $verificationIds = $verifications->pluck('id')->all();
-
-        $evidences = \App\Models\Evidence::query()
-            ->whereHas('claimVerifications', function ($query) use ($verificationIds) {
-                $query->whereIn('claim_verifications.id', $verificationIds);
-            })
-            ->get();
+        $evidences = $verifications
+            ->flatMap(fn (\App\Models\ClaimVerification $verification) => $verification->evidences)
+            ->unique('id')
+            ->values();
 
         $prediction = $analysis->predictions()->latest()->first();
 

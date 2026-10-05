@@ -4,16 +4,45 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "url": "https://www.bbc.com/mundo/articles/cq0lrl6z5rw1o"
+    "url": "https://www.elespectador.com/politica/de-la-espriella-declara-insubsistente-a-director-de-bomberos-por-presuntas-irregularidades/"
 }
 
 ### Analizar artículo
-POST  http://127.0.0.1:8000/api/v1/articles/18/analyze
+POST  http://127.0.0.1:8000/api/v1/articles/35/analyze
 
 ### Obtener estado de análisis
-GET http://127.0.0.1:8000/api/v1/analyses/22/status
+GET http://127.0.0.1:8000/api/v1/analyses/38/status
 Accept: application/json
 
 ### Obtener resultados del análisis
-GET http://127.0.0.1:8000/api/v1/analyses/22
+GET http://127.0.0.1:8000/api/v1/analyses/38
 Accept: application/json
+
+### Crear artículo desde texto plano
+POST http://127.0.0.1:8000/api/v1/articles
+Accept: application/json
+Content-Type: text/plain; charset=utf-8
+
+Colombia implementará un sistema de inteligencia artificial que eliminará los semáforos tradicionales en las principales ciudades.
+
+Bogotá, 1 de octubre de 2026. El Gobierno Nacional anunció este miércoles la implementación de un sistema de inteligencia artificial que reemplazará progresivamente los semáforos tradicionales por una red de cámaras y algoritmos capaces de controlar el tráfico en tiempo real.
+
+
+### Crear artículo pegando texto directamente
+POST http://127.0.0.1:8000/api/v1/articles
+Accept: application/json
+Content-Type: text/plain; charset=utf-8
+
+La NASA confirmó que su misión DART (Double Asteroid Redirection Test) logró modificar la órbita del asteroide Dimorphos después de que una nave espacial impactara deliberadamente contra su superficie el 26 de septiembre de 2022.
+
+Dimorphos es un pequeño asteroide que orbita alrededor de otro asteroide de mayor tamaño denominado Didymos. Antes del impacto, Dimorphos tardaba aproximadamente 11 horas y 55 minutos en completar una órbita alrededor de su compañero.
+
+Después de la colisión, los investigadores determinaron que el período orbital de Dimorphos se redujo en aproximadamente 32 minutos, pasando a unas 11 horas y 23 minutos.
+
+El experimento constituyó la primera demostración a gran escala de una técnica de defensa planetaria basada en el impacto de una nave espacial contra un asteroide para modificar su trayectoria.
+
+Investigaciones posteriores también determinaron que el impacto modificó la forma de Dimorphos y que el material expulsado de su superficie contribuyó significativamente al cambio en su movimiento.
+
+En 2026, investigadores informaron además que el impacto de DART produjo un pequeño cambio en la órbita del sistema Didymos-Dimorphos alrededor del Sol. El cambio fue de aproximadamente 0,15 segundos en un período orbital de unos 770 días.
+
+Los resultados de la misión proporcionan evidencia de que un impactador cinético puede modificar de manera medible el movimiento de un cuerpo celeste, una técnica que podría ser considerada para futuras estrategias de defensa planetaria.

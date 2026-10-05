@@ -11,6 +11,8 @@ return [
     |
     */
     'provider' => env('AI_PROVIDER', 'gemini'),
+    'fallback_enabled' => (bool) env('AI_FALLBACK_ENABLED', true),
+    'fallback_provider' => env('AI_FALLBACK_PROVIDER', 'openai'),
 
     'classifier' => [
         'provider' => env('CLASSIFIER_PROVIDER', 'bert'),
@@ -36,6 +38,7 @@ return [
     |
     */
     'timeout' => (int) env('AI_PROVIDER_TIMEOUT', 120),
+    'rate_limit_backoff' => (int) env('AI_RATE_LIMIT_BACKOFF', 60),
 
     'bert' => [
         /*
@@ -60,6 +63,11 @@ return [
     */
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
+        'api_keys' => array_values(array_filter([
+            env('GEMINI_API_KEY'),
+            env('GEMINI_API_KEY_2'),
+            env('GEMINI_API_KEY_3'),
+        ])),
         'api_base_url' => env('GEMINI_API_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
         'model' => env('GEMINI_MODEL', 'gemini-3.6-flash'),
         'fallback_models' => array_filter(array_map(
@@ -79,7 +87,9 @@ return [
     */
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_MODEL', 'gpt-4'),
-        'temperature' => (float) env('OPENAI_TEMPERATURE', 0.7),
+        'api_base_url' => env('OPENAI_API_BASE_URL', 'https://api.openai.com/v1'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'temperature' => (float) env('OPENAI_TEMPERATURE', 0.2),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 120),
     ],
 ];

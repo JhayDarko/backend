@@ -33,14 +33,19 @@ class AiProviderException extends Exception
     /**
      * Create a rate limit exception.
      */
-    public static function rateLimit(int $retryAfter = null): self
+    public static function rateLimit(?int $retryAfter = null): self
     {
         $msg = 'AI provider rate limit exceeded';
         if ($retryAfter) {
             $msg .= " (retry after {$retryAfter}s)";
         }
 
-        return new self($msg);
+        return new self($msg, 429);
+    }
+
+    public static function quotaExhausted(string $provider, string $message): self
+    {
+        return new self("{$provider} quota is exhausted: {$message}", 402);
     }
 
     /**
@@ -49,6 +54,11 @@ class AiProviderException extends Exception
     public static function invalidResponse(string $message): self
     {
         return new self("Invalid response from AI provider: {$message}");
+    }
+
+    public static function responseValidation(string $message): self
+    {
+        return self::invalidResponse($message);
     }
 
     /**

@@ -122,6 +122,25 @@ class ArticleApiTest extends TestCase
         ]);
     }
 
+    public function test_can_store_article_from_plain_text_body(): void
+    {
+        $plainText = "Titular pegado por el usuario\n\nEste es el contenido completo de una noticia copiada y pegada directamente en el sistema.";
+
+        $response = $this->call(
+            'POST',
+            '/api/v1/articles',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'text/plain'],
+            $plainText,
+        );
+
+        $response->assertCreated()
+            ->assertJsonPath('data.url', null)
+            ->assertJsonPath('data.content', $plainText);
+    }
+
     public function test_raw_text_submission_is_deduplicated_by_content_hash(): void
     {
         $payload = [
