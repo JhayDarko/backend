@@ -48,8 +48,9 @@ class AnalysisStatusApiTest extends TestCase
             ->assertJsonPath('data.id', $analysis->id)
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.step', 'queued')
-            ->assertJsonPath('data.progress.claims_count', 0)
-            ->assertJsonPath('data.progress.has_score', false)
+            ->assertJsonPath('data.progress', 0)
+            ->assertJsonPath('data.progress_details.claims_count', 0)
+            ->assertJsonPath('data.progress_details.has_score', false)
             ->assertJsonPath('data.final_verdict', null);
     }
 
@@ -75,7 +76,8 @@ class AnalysisStatusApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.status', 'processing')
             ->assertJsonPath('data.step', 'verifying_evidence')
-            ->assertJsonPath('data.progress.claims_count', 1);
+            ->assertJsonPath('data.progress', 60)
+            ->assertJsonPath('data.progress_details.claims_count', 1);
     }
 
     public function test_returns_status_for_completed_analysis(): void
@@ -112,7 +114,8 @@ class AnalysisStatusApiTest extends TestCase
             ->assertJsonPath('data.final_verdict', 'credible')
             ->assertJsonPath('data.credibility_score', '88.50')
             ->assertJsonPath('data.confidence_score', '0.92')
-            ->assertJsonPath('data.progress.has_score', true);
+            ->assertJsonPath('data.progress', 100)
+            ->assertJsonPath('data.progress_details.has_score', true);
     }
 
     public function test_returns_status_for_failed_analysis(): void
@@ -131,6 +134,7 @@ class AnalysisStatusApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.status', 'failed')
             ->assertJsonPath('data.step', 'failed')
+            ->assertJsonPath('data.progress', 20)
             ->assertJsonPath('data.error', 'External AI provider timeout');
     }
 

@@ -151,4 +151,77 @@ class FactCheckServiceTest extends TestCase
         $this->assertSame('no_match', $result['status']);
         $this->assertSame([], $result['results']);
     }
+
+    public function test_it_uses_a_compact_query_when_the_exact_claim_has_no_match(): void
+    {
+        $article = Article::query()->create([
+            'title' => 'Titular largo',
+            'content' => 'Contexto de una noticia de prueba con una afirmación verificable.',
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'pending',
+        ]);
+        $claim = Claim::query()->create([
+            'analysis_id' => $analysis->id,
+            'text' => 'El Gobierno de Colombia anunció que el precio del combustible bajará un 20 por ciento en octubre',
+            'type' => 'factual',
+            'importance' => 0.9,
+            'verifiable' => true,
+            'context' => 'Anuncio gubernamental sobre precios.',
+            'fingerprint' => 'fact-check-query-fallback',
+        ]);
+
+        $provider = new class implements FactCheckProviderInterface {
+            public array $queries = [];
+
+            public function search(string $query): array
+            {
+                $this->queries[] = $query;
+
+                if (count($this->queries) === 1) {
+                    return [[
+                        'provider' => 'google_fact_check',
+                        'query' => $query,
+                        'claim_text' => 'El precio del combustible bajará en octubre',
+                        'publisher' => 'Fuente con rating no reconocido',
+                        'publisher_site' => 'unknown.example',
+                        'fact_check_url' => 'https://unknown.example/review',
+                        'fact_check_title' => 'Revisión sin etiqueta normalizable',
+                        'raw_rating' => 'Rating editorial nuevo',
+                        'normalized_rating' => 'unknown',
+                        'metadata' => [],
+                    ]];
+                }
+
+                return [[
+                    'provider' => 'google_fact_check',
+                    'query' => $query,
+                    'claim_text' => 'El precio del combustible bajará un 20 por ciento en octubre',
+                    'publisher' => 'Verificador',
+                    'publisher_site' => 'verificador.example',
+                    'fact_check_url' => 'https://verificador.example/revision',
+                    'fact_check_title' => 'Revisión del precio del combustible',
+                    'raw_rating' => 'Engañoso',
+                    'normalized_rating' => 'mostly_false',
+                    'metadata' => [],
+                ]];
+            }
+
+            public function getName(): string
+            {
+                return 'google_fact_check';
+            }
+        };
+
+        $result = (new FactCheckService($provider))->verifyClaim($claim);
+
+        $this->assertSame('matched', $result['status']);
+        $this->assertCount(2, $provider->queries);
+        $this->assertCount(2, $result['results']);
+        $this->assertTrue($claim->fresh()->claimVerifications()
+            ->where('status', 'matched')
+            ->where('normalized_rating', 'mostly_false')
+            ->exists());
+    }
 }

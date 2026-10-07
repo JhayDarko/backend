@@ -271,11 +271,14 @@ class ExtractClaimsJobTest extends TestCase
             'status' => 'pending',
         ]);
 
-        (new ExtractClaimsJob($analysis->id))->handle(new ClaimExtractionService());
+        $job = (new ExtractClaimsJob($analysis->id))->withFakeQueueInteractions();
+        $job->handle(new ClaimExtractionService());
 
         $analysis->refresh();
         $this->assertSame('failed', $analysis->status);
-        $this->assertStringContainsString('quota is exhausted', $analysis->error);
+        $this->assertStringContainsString('cuota', strtolower($analysis->error));
+        $this->assertStringNotContainsString('OpenAI', $analysis->error);
+        $job->assertFailed();
         Bus::assertNothingBatched();
     }
 }

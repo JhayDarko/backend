@@ -13,6 +13,7 @@ use App\Services\AI\Providers\GeminiAnalystProvider;
 use App\Services\AI\Providers\GeminiProvider;
 use App\Services\FactCheck\GoogleFactCheckProvider;
 use App\Services\Search\SearchProviderManager;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -34,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Claim verification jobs are independent; several workers process them in parallel.
+        // Same name as the framework default so this replaces the single `queue:listen` process.
+        DevCommands::artisan('queue:work --sleep=1 --tries=4 --backoff=10 --timeout=0', 'queue');
+        for ($worker = 2; $worker <= max(1, (int) config('queue.dev_workers', 3)); $worker++) {
+            DevCommands::artisan('queue:work --sleep=1 --tries=4 --backoff=10 --timeout=0', "queue-{$worker}");
+        }
     }
 }

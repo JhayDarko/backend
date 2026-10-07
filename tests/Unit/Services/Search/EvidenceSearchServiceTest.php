@@ -90,6 +90,38 @@ class EvidenceSearchServiceTest extends TestCase
         $this->assertStringContainsString('example.com/noticia', $claim->fresh()->claimVerifications()->first()->evidences()->first()->url);
     }
 
+    public function test_search_excludes_social_networks_and_asks_provider_to_exclude_them(): void
+    {
+        $claim = new Claim(['text' => 'La NASA modificó la órbita de Dimorphos', 'verifiable' => true]);
+
+        $provider = new class implements \App\Contracts\Search\SearchProviderInterface {
+            public array $options = [];
+
+            public function search(string $query, array $options = []): array
+            {
+                $this->options = $options;
+
+                return [
+                    ['title' => 'Post', 'url' => 'https://www.facebook.com/post/1', 'snippet' => 'a', 'provider' => 'p'],
+                    ['title' => 'Hilo', 'url' => 'https://x.com/u/status/1', 'snippet' => 'b', 'provider' => 'p'],
+                    ['title' => 'Blog', 'url' => 'https://blog.example/nota', 'snippet' => 'c', 'provider' => 'p'],
+                    ['title' => 'NASA', 'url' => 'https://www.nasa.gov/dart', 'snippet' => 'd', 'provider' => 'p'],
+                ];
+            }
+
+            public function getName(): string
+            {
+                return 'p';
+            }
+        };
+
+        $results = (new EvidenceSearchService($provider))->search($claim);
+
+        $this->assertSame(['https://www.nasa.gov/dart', 'https://blog.example/nota'], array_column($results, 'url'));
+        $this->assertContains('facebook.com', $provider->options['exclude_domains']);
+        $this->assertSame(15, $provider->options['max_results']);
+    }
+
     public function test_search_claim_evidence_job_dispatches_for_claim(): void
     {
         Queue::fake();

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Claim;
+use App\Services\FactCheck\FactCheckRatingNormalizer;
 use App\Services\FactCheck\FactCheckService;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,10 +35,21 @@ class VerifyClaimJob implements ShouldQueue
             return;
         }
 
-        $existing = $claim->claimVerifications()->where('provider', 'google_fact_check')->exists();
+        $existing = $claim->claimVerifications()
+            ->where('provider', 'google_fact_check')
+            ->where('status', 'matched')
+            ->get(['normalized_rating', 'raw_rating'])
+            ->contains(function ($verification): bool {
+                $rating = strtolower((string) $verification->normalized_rating);
+                if ($rating === '' || $rating === 'unknown') {
+                    $rating = FactCheckRatingNormalizer::normalize((string) $verification->raw_rating)['normalized_rating'];
+                }
+
+                return in_array($rating, ['true', 'mostly_true', 'mixed', 'mostly_false', 'false'], true);
+            });
 
         if ($existing) {
-            Log::info('VerifyClaimJob skipped because claim already has external verification', [
+            Log::info('VerifyClaimJob skipped because claim already has an interpretable external fact-check rating', [
                 'claim_id' => $claim->id,
             ]);
 

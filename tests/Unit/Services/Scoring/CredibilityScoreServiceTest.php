@@ -373,6 +373,80 @@ class CredibilityScoreServiceTest extends TestCase
         $this->assertSame('refuted', $claimResults['Afirmación refutada']['stance']);
         $this->assertSame('inconclusive', $result->finalVerdict);
         $this->assertSame('partially_true', $result->breakdown['truth_assessment']['label']);
-        $this->assertStringContainsString('sin verificar', strtolower($result->breakdown['analyst_summary']));
+        $this->assertStringContainsString('no se pudieron confirmar', strtolower($result->breakdown['analyst_summary']));
     }
-}
+
+    public function test_legacy_fact_check_raw_rating_is_used_when_normalized_rating_is_unknown(): void
+    {
+        $article = Article::query()->create([
+            'title' => 'Afirmación revisada',
+            'content' => 'Contenido de prueba suficiente para evaluar un fact-check legado.',
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'processing',
+        ]);
+        $claim = Claim::query()->create([
+            'analysis_id' => $analysis->id,
+            'text' => 'La afirmación fue calificada como engañosa',
+            'importance' => 1.0,
+            'verifiable' => true,
+            'type' => 'factual',
+        ]);
+        ClaimVerification::query()->create([
+            'claim_id' => $claim->id,
+            'relation' => 'external_fact_check',
+            'provider' => 'google_fact_check',
+            'status' => 'matched',
+            'raw_rating' => 'Engañoso',
+            'normalized_rating' => 'unknown',
+            'publisher' => 'Verificador',
+            'publisher_site' => 'verificador.example',
+            'fact_check_url' => 'https://verificador.example/nota',
+        ]);
+
+        $result = $this->service->calculate(
+            $analysis,
+            new SourceAnalysisResult('unknown', 'unknown', 0.5, false),
+        );
+
+        $claimResult = $result->breakdown['claim_evaluations'][0];
+        $this->assertSame('refuted', $claimResult['stance']);
+        $this->assertTrue($claimResult['fact_checked']);
+        $this->assertSame('mostly_false', $claimResult['fact_check_sources'][0]['rating']);
+    }
+
+    public function test_main_claim_weighs_more_and_minor_unverifiable_claims_do_not_drag_the_verdict(): void
+    {
+        $article = Article::query()->create(['title' => 'Misión confirmada', 'content' => 'Texto.', 'url' => null]);
+        $analysis = Analysis::query()->create(['article_id' => $article->id, 'status' => 'processing']);
+
+        $main = Claim::query()->create(['analysis_id' => $analysis->id, 'text' => 'Tesis principal', 'type' => 'factual', 'importance' => 0.9, 'verifiable' => true]);
+        $minor = Claim::query()->create(['analysis_id' => $analysis->id, 'text' => 'Detalle menor sin fuentes', 'type' => 'factual', 'importance' => 0.5, 'verifiable' => true]);
+        Claim::query()->create(['analysis_id' => $analysis->id, 'text' => 'Opinión del autor', 'type' => 'opinion', 'importance' => 0.4, 'verifiable' => false]);
+        Claim::query()->create(['analysis_id' => $analysis->id, 'text' => 'Ocurrirá en 2030', 'type' => 'prediction', 'importance' => 0.4, 'verifiable' => true]);
+
+        ClaimVerification::query()->create([
+            'claim_id' => $main->id,
+            'relation' => 'external_fact_check',
+            'provider' => 'google_fact_check',
+            'status' => 'matched',
+            'normalized_rating' => 'true',
+            'fact_check_url' => 'https://factual.afp.com/v1',
+        ]);
+
+        $result = $this->service->calculate($analysis, new SourceAnalysisResult(domain: 'x.test', trustTier: 'unknown', reputationScore: 0.5, isKnownFactChecker: false));
+        $byText = collect($result->breakdown['claim_evaluations'])->keyBy('claim_text');
+
+        $this->assertSame($main->id, $result->breakdown['signals']['central_claim_id']);
+        $this->assertTrue($byText['Tesis principal']['is_central']);
+        $this->assertSame(1.8, $byText['Tesis principal']['weight']);
+        $this->assertSame(0.2, $byText['Detalle menor sin fuentes']['weight']);
+        $this->assertSame('no_evidence_found', $byText['Detalle menor sin fuentes']['unverifiable_reason']);
+        $this->assertSame('opinion', $byText['Opinión del autor']['unverifiable_reason']);
+        $this->assertSame('prediction', $byText['Ocurrirá en 2030']['unverifiable_reason']);
+        $this->assertFalse($byText['Ocurrirá en 2030']['included_in_verdict']);
+        $this->assertSame(0.9, $result->breakdown['signals']['evidence_coverage']);
+        $this->assertSame(2, $result->breakdown['signals']['unverifiable_claims_count']);
+        $this->assertNotNull($minor->id);
+    }}

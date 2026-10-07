@@ -211,6 +211,7 @@ textarea { display: block; width: 100%; min-height: 220px; resize: vertical; bor
 .claim-badge.refuted { color: var(--brick); }
 .claim-badge.mixed { color: #9A6A00; }
 .claim-badge.unverified, .claim-badge.pending { color: var(--slate); }
+.claim-central { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--cobalt); color: #fff; font-size: 11px; line-height: 1.5; }
 .claim-detail { padding: 0 14px 14px; border-top: 1px solid var(--line); }
 .claim-conclusion { margin: 12px 0; color: var(--fg); font-size: 14px; }
 .claim-context, .claim-reasoning { margin: 12px 0; color: var(--muted); font-size: 13px; }

@@ -45,6 +45,11 @@ return [
     'false_fact_check_coverage' => (float) env('SCORING_FALSE_FACT_CHECK_COVERAGE', 0.50),
     'false_max_score' => (float) env('SCORING_FALSE_MAX_SCORE', 25.0),
 
+    // The main claim counts this many times; unresolved secondary claims keep only this fraction of their weight.
+    'central_claim_weight' => (float) env('SCORING_CENTRAL_CLAIM_WEIGHT', 2.0),
+    'central_claim_margin' => (float) env('SCORING_CENTRAL_CLAIM_MARGIN', 0.1),
+    'unverified_secondary_weight' => (float) env('SCORING_UNVERIFIED_SECONDARY_WEIGHT', 0.4),
+
     /*
     |--------------------------------------------------------------------------
     | Fact-Check Rating Normalization Weights (0-100)

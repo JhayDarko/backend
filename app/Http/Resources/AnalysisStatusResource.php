@@ -14,6 +14,7 @@ final class AnalysisStatusResource extends JsonResource
     {
         $claimsCount = $this->claims()->count();
         $hasScore = $this->score()->exists();
+        $hasPredictions = $this->predictions()->exists();
 
         $step = match ($this->status) {
             'pending' => 'queued',
@@ -21,6 +22,14 @@ final class AnalysisStatusResource extends JsonResource
             'completed' => 'completed',
             'failed' => 'failed',
             default => $this->status,
+        };
+
+        $progress = match ($this->status) {
+            'pending' => 0,
+            'processing' => $claimsCount === 0 ? 20 : ($hasScore ? 90 : ($hasPredictions ? 75 : 60)),
+            'completed' => 100,
+            'failed' => $claimsCount === 0 ? 20 : ($hasPredictions ? 75 : 60),
+            default => null,
         };
 
         $duration = null;
@@ -35,10 +44,11 @@ final class AnalysisStatusResource extends JsonResource
             'article_id' => $this->article_id,
             'status' => $this->status,
             'step' => $step,
-            'progress' => [
+            'progress' => $progress,
+            'progress_details' => [
                 'claims_count' => $claimsCount,
                 'has_score' => $hasScore,
-                'has_predictions' => $this->predictions()->exists(),
+                'has_predictions' => $hasPredictions,
             ],
             'final_verdict' => $this->final_verdict,
             'credibility_score' => $this->credibility_score,

@@ -19,39 +19,67 @@ class FactCheckService
      */
     public function verifyClaim(Claim $claim): array
     {
-        $query = $this->buildQuery($claim);
-        $results = $this->provider->search($query);
-
-        if ($results === []) {
-            $this->persistNoMatch($claim, $query);
-
-            return [
-                'status' => 'no_match',
-                'results' => [],
-            ];
-        }
-
+        $queries = $this->buildQueries($claim);
         $persisted = [];
 
-        foreach ($results as $result) {
-            $persisted[] = $this->persistResult($claim, $result);
+        foreach ($queries as $query) {
+            $results = $this->provider->search($query);
+            $hasUsableRating = false;
+
+            foreach ($results as $result) {
+                $persisted[] = $this->persistResult($claim, $result);
+                $normalizedRating = strtolower((string) ($result['normalized_rating'] ?? 'unknown'));
+                if ($normalizedRating === '' || $normalizedRating === 'unknown') {
+                    $normalizedRating = FactCheckRatingNormalizer::normalize((string) ($result['raw_rating'] ?? ''))['normalized_rating'];
+                }
+                $hasUsableRating = $hasUsableRating || $normalizedRating !== 'unknown';
+            }
+
+            if ($hasUsableRating) {
+                break;
+            }
+        }
+
+        if ($persisted === []) {
+            $this->persistNoMatch($claim, $queries);
         }
 
         return [
-            'status' => 'matched',
+            'status' => $persisted === [] ? 'no_match' : 'matched',
             'results' => $persisted,
         ];
     }
 
-    private function buildQuery(Claim $claim): string
+    /** @return array<int, string> */
+    private function buildQueries(Claim $claim): array
     {
         $base = trim((string) $claim->text);
 
         if ($base === '') {
-            return 'fact check';
+            return ['fact check'];
         }
 
-        return Str::limit($base, 180, '');
+        $exact = Str::limit($base, 180, '');
+        $stopWords = array_flip([
+            'a', 'al', 'algo', 'como', 'con', 'contra', 'cual', 'cuando', 'de', 'del', 'desde', 'donde',
+            'el', 'ella', 'ellas', 'ellos', 'en', 'entre', 'era', 'es', 'esa', 'ese', 'esta', 'este',
+            'fue', 'ha', 'hace', 'la', 'las', 'lo', 'los', 'más', 'menos', 'muy', 'no', 'o', 'para',
+            'pero', 'por', 'porque', 'que', 'se', 'según', 'sin', 'sobre', 'su', 'sus', 'también',
+            'un', 'una', 'uno', 'unos', 'unas', 'y', 'ya',
+        ]);
+        $tokens = preg_split('/[^\p{L}\p{N}%]+/u', mb_strtolower($base)) ?: [];
+        $keywords = [];
+
+        foreach ($tokens as $token) {
+            if ($token === '' || (mb_strlen($token) < 3 && ! is_numeric($token)) || isset($stopWords[$token])) {
+                continue;
+            }
+            $keywords[$token] = true;
+        }
+
+        $compact = implode(' ', array_slice(array_keys($keywords), 0, 10));
+
+        return array_values(array_unique(array_filter([$exact, $compact], fn (string $query): bool => $query !== '')));
     }
 
     private function persistResult(Claim $claim, array $result): array
@@ -121,10 +149,10 @@ class FactCheckService
         ];
     }
 
-    private function persistNoMatch(Claim $claim, string $query): void
+    private function persistNoMatch(Claim $claim, array $queries): void
     {
         $providerName = $this->provider->getName();
-        $fingerprint = md5(implode('|', [(string) $claim->id, $providerName, 'no_match', $query]));
+        $fingerprint = md5(implode('|', [(string) $claim->id, $providerName, 'no_match', implode('|', $queries)]));
 
         ClaimVerification::query()->firstOrCreate([
             'fingerprint' => $fingerprint,
@@ -133,9 +161,9 @@ class FactCheckService
             'relation' => 'external_fact_check',
             'status' => 'no_match',
             'provider' => $providerName,
-            'query_used' => $query,
+            'query_used' => implode(' | ', $queries),
             'normalized_rating' => 'unknown',
-            'metadata' => ['result_count' => 0],
+            'metadata' => ['result_count' => 0, 'queries_attempted' => $queries],
             'confidence' => 0.0,
             'relevance_score' => 0.0,
         ]);

@@ -10,9 +10,14 @@ use Illuminate\Support\Str;
 
 final class EvidenceSearchService
 {
+    protected SourceDomainPolicy $domainPolicy;
+
     public function __construct(
         protected SearchProviderInterface $provider,
-    ) {}
+        ?SourceDomainPolicy $domainPolicy = null,
+    ) {
+        $this->domainPolicy = $domainPolicy ?? app(SourceDomainPolicy::class);
+    }
 
     /**
      * @return array<int, array<string, mixed>>
@@ -25,7 +30,8 @@ final class EvidenceSearchService
 
         $query = $this->buildQuery($claim);
         $results = $this->provider->search($query, [
-            'max_results' => 10,
+            'max_results' => max(1, (int) config('search.fetch_results', 15)),
+            'exclude_domains' => $this->domainPolicy->blockedDomains(),
         ]);
 
         $normalized = [];
@@ -75,7 +81,9 @@ final class EvidenceSearchService
             }
         }
 
-        return $this->deduplicateResults($normalized);
+        $credible = $this->domainPolicy->filterAndRank($this->deduplicateResults($normalized));
+
+        return array_slice($credible, 0, max(1, (int) config('search.evidence_per_claim', 8)));
     }
 
     /**
@@ -99,7 +107,7 @@ final class EvidenceSearchService
                 $url,
             ]));
 
-            $verification = ClaimVerification::query()->firstOrCreate([
+            $verification = ClaimVerification::query()->createOrFirst([
                 'claim_id' => $claim->id,
                 'provider' => $provider,
                 'fingerprint' => $fingerprint,
@@ -119,7 +127,7 @@ final class EvidenceSearchService
                 'fingerprint' => $fingerprint,
             ]);
 
-            $evidence = Evidence::query()->firstOrCreate([
+            $evidence = Evidence::query()->createOrFirst([
                 'url' => $url,
             ], [
                 'title' => (string) ($result['title'] ?? ''),
@@ -132,6 +140,7 @@ final class EvidenceSearchService
                     'source_name' => $result['source_name'] ?? null,
                     'domain' => $result['domain'] ?? null,
                     'relevance' => $result['relevance'] ?? null,
+                    'trusted' => $this->domainPolicy->isTrusted($url),
                 ],
             ]);
 

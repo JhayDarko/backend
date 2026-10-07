@@ -15,6 +15,9 @@ return [
 
     'default' => env('QUEUE_CONNECTION', 'database'),
 
+    // Parallel queue workers started by `composer dev` (claims are verified concurrently).
+    'dev_workers' => (int) env('QUEUE_DEV_WORKERS', 3),
+
     /*
     |--------------------------------------------------------------------------
     | Queue Connections

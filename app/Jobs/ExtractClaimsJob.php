@@ -108,12 +108,6 @@ class ExtractClaimsJob implements ShouldQueue
                 'batch_jobs_dispatched' => count($jobs),
             ]);
         } catch (Throwable $exception) {
-            $analysis->update([
-                'status' => 'failed',
-                'error' => $exception->getMessage(),
-                'completed_at' => now(),
-            ]);
-
             Log::error('ExtractClaimsJob failed', [
                 'analysis_id' => $analysis->id,
                 'article_id' => $article->id,
@@ -121,13 +115,22 @@ class ExtractClaimsJob implements ShouldQueue
             ]);
 
             if ($exception instanceof AiProviderException && $exception->getCode() === 402) {
+                $this->markAnalysisFailed($analysis, $exception);
                 Log::warning('ExtractClaimsJob stopped retrying because an AI provider has no available quota', [
                     'analysis_id' => $analysis->id,
                     'article_id' => $article->id,
                 ]);
 
+                $this->fail($exception);
+
                 return;
             }
+
+            Log::warning('ExtractClaimsJob will be retried after a provider or extraction failure', [
+                'analysis_id' => $analysis->id,
+                'attempt' => $this->attempts(),
+                'error' => $exception->getMessage(),
+            ]);
 
             throw $exception;
         }
@@ -138,11 +141,7 @@ class ExtractClaimsJob implements ShouldQueue
         $analysis = Analysis::query()->find($this->analysisId);
 
         if ($analysis) {
-            $analysis->update([
-                'status' => 'failed',
-                'error' => $exception->getMessage(),
-                'completed_at' => now(),
-            ]);
+            $this->markAnalysisFailed($analysis, $exception);
         }
 
         Log::error('ExtractClaimsJob permanently failed', [
@@ -157,6 +156,19 @@ class ExtractClaimsJob implements ShouldQueue
             'status' => 'processing',
             'started_at' => now(),
             'error' => null,
+        ]);
+    }
+
+    private function markAnalysisFailed(Analysis $analysis, Throwable $exception): void
+    {
+        $safeError = $exception instanceof AiProviderException && $exception->getCode() === 402
+            ? 'La cuota de un proveedor de IA está agotada. Revisa su facturación y reintenta el análisis.'
+            : 'No se pudo completar el análisis después de los reintentos disponibles. Revisa los logs para más detalles.';
+
+        $analysis->update([
+            'status' => 'failed',
+            'error' => $safeError,
+            'completed_at' => now(),
         ]);
     }
 }

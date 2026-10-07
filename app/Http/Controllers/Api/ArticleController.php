@@ -39,6 +39,15 @@ final class ArticleController extends Controller
             });
         }
 
+        if ($request->query('pagination') === 'cursor' || $request->query('cursor') !== null) {
+            $articles = $query
+                ->orderByDesc('id')
+                ->cursorPaginate($perPage)
+                ->appends($request->except('cursor'));
+
+            return ArticleResource::collection($articles);
+        }
+
         $articles = $query->latest('id')->paginate($perPage);
 
         return ArticleResource::collection($articles);

@@ -100,44 +100,42 @@ final class GoogleFactCheckProvider implements FactCheckProviderInterface
             }
 
             $claimText = (string) ($claim['text'] ?? '');
-            $language = (string) ($claim['languageCode'] ?? '');
             $claimant = (string) ($claim['claimant'] ?? '');
             $claimDate = $claim['claimDate'] ?? null;
-            $reviewDate = $claim['reviewDate'] ?? null;
-            $publisher = $claim['publisher'] ?? [];
-            $publisherName = (string) ($publisher['name'] ?? '');
-            $publisherSite = (string) ($publisher['site'] ?? '');
             $reviews = $claim['claimReview'] ?? [];
 
             if (! is_array($reviews) || $reviews === []) {
                 continue;
             }
 
-            $review = $reviews[0] ?? [];
-            $reviewUrl = (string) ($review['url'] ?? '');
-            $reviewTitle = (string) ($review['title'] ?? '');
-            $textualRating = (string) ($review['textualRating'] ?? '');
-            $normalizedRating = FactCheckRatingNormalizer::normalize($textualRating);
+            foreach ($reviews as $review) {
+                if (! is_array($review)) {
+                    continue;
+                }
 
-            $normalized[] = [
-                'provider' => $this->getName(),
-                'query' => $cleanQuery,
-                'claim_text' => $claimText,
-                'claimant' => $claimant,
-                'claim_date' => $claimDate,
-                'review_date' => $reviewDate,
-                'language' => $language,
-                'publisher' => $publisherName,
-                'publisher_site' => $publisherSite,
-                'fact_check_url' => $reviewUrl,
-                'fact_check_title' => $reviewTitle,
-                'raw_rating' => $normalizedRating['raw_rating'],
-                'normalized_rating' => $normalizedRating['normalized_rating'],
-                'metadata' => [
-                    'claim' => $claim,
-                    'review' => $review,
-                ],
-            ];
+                $reviewPublisher = $review['publisher'] ?? [];
+                $normalizedRating = FactCheckRatingNormalizer::normalize((string) ($review['textualRating'] ?? ''));
+
+                $normalized[] = [
+                    'provider' => $this->getName(),
+                    'query' => $cleanQuery,
+                    'claim_text' => $claimText,
+                    'claimant' => $claimant,
+                    'claim_date' => $claimDate,
+                    'review_date' => $review['reviewDate'] ?? null,
+                    'language' => (string) ($review['languageCode'] ?? ''),
+                    'publisher' => (string) ($reviewPublisher['name'] ?? ''),
+                    'publisher_site' => (string) ($reviewPublisher['site'] ?? ''),
+                    'fact_check_url' => (string) ($review['url'] ?? ''),
+                    'fact_check_title' => (string) ($review['title'] ?? ''),
+                    'raw_rating' => $normalizedRating['raw_rating'],
+                    'normalized_rating' => $normalizedRating['normalized_rating'],
+                    'metadata' => [
+                        'claim' => $claim,
+                        'review' => $review,
+                    ],
+                ];
+            }
         }
 
         return $normalized;

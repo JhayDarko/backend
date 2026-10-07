@@ -37,6 +37,41 @@ class ArticleApiTest extends TestCase
             ->assertJsonPath('meta.total', 5);
     }
 
+    public function test_can_list_articles_with_cursor_pagination(): void
+    {
+        $source = Source::create([
+            'name' => 'Cursor Source',
+            'domain' => 'cursor.example',
+            'url' => 'https://cursor.example',
+        ]);
+
+        for ($i = 1; $i <= 5; $i++) {
+            Article::create([
+                'source_id' => $source->id,
+                'url' => "https://cursor.example/article-{$i}",
+                'title' => "Cursor article {$i}",
+                'content' => "Content {$i}",
+            ]);
+        }
+
+        $firstPage = $this->getJson('/api/v1/articles?pagination=cursor&per_page=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.per_page', 2);
+
+        $cursor = $firstPage->json('meta.next_cursor');
+        $this->assertNotEmpty($cursor);
+
+        $secondPage = $this->getJson('/api/v1/articles?pagination=cursor&per_page=2&cursor='.urlencode($cursor))
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $firstIds = collect($firstPage->json('data'))->pluck('id');
+        $secondIds = collect($secondPage->json('data'))->pluck('id');
+
+        $this->assertSame([], $firstIds->intersect($secondIds)->all());
+    }
+
     public function test_can_search_articles_by_keyword(): void
     {
         $source = Source::create([

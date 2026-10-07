@@ -59,6 +59,40 @@ class AnalysisListAndRetryApiTest extends TestCase
             ->assertJsonPath('meta.total', 4);
     }
 
+    public function test_can_list_analyses_with_cursor_pagination(): void
+    {
+        for ($i = 1; $i <= 4; $i++) {
+            $article = Article::create([
+                'source_id' => $this->article->source_id,
+                'url' => "https://elconfidencial.com/cursor-{$i}",
+                'title' => "Cursor analysis {$i}",
+                'content' => "Content {$i}",
+            ]);
+            Analysis::create([
+                'article_id' => $article->id,
+                'status' => 'completed',
+                'algorithm_version' => '1.2.0',
+            ]);
+        }
+
+        $firstPage = $this->getJson('/api/v1/analyses?pagination=cursor&per_page=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.per_page', 2);
+
+        $cursor = $firstPage->json('meta.next_cursor');
+        $this->assertNotEmpty($cursor);
+
+        $secondPage = $this->getJson('/api/v1/analyses?pagination=cursor&per_page=2&cursor='.urlencode($cursor))
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $firstIds = collect($firstPage->json('data'))->pluck('id');
+        $secondIds = collect($secondPage->json('data'))->pluck('id');
+
+        $this->assertSame([], $firstIds->intersect($secondIds)->all());
+    }
+
     public function test_can_filter_analyses_by_status(): void
     {
         $art1 = Article::create(['source_id' => $this->article->source_id, 'url' => 'https://test/1', 'title' => 'T1', 'content' => 'C1']);

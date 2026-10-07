@@ -193,6 +193,34 @@ class GeminiProviderTest extends TestCase
     }
 
     #[Test]
+    public function it_skips_to_the_next_model_immediately_when_a_model_is_overloaded(): void
+    {
+        config(['ai.gemini.fallback_models' => ['gemini-fallback']]);
+        $provider = new GeminiProvider();
+
+        $valid = ['candidates' => [['content' => ['parts' => [['text' => json_encode([
+            'summary' => 'Resumen.',
+            'claims' => [['text' => 'Afirmación.', 'importance' => 0.8, 'verifiable' => true, 'type' => 'factual', 'context' => 'Contexto.']],
+            'entities' => [],
+            'sources' => [],
+            'red_flags' => [],
+        ])]]]]]];
+
+        Http::fake([
+            '*models/gemini-2.0-flash:*' => Http::response(['error' => ['message' => 'overloaded']], 503),
+            '*models/gemini-fallback:*' => Http::response($valid, 200),
+        ]);
+
+        $this->assertSame('Resumen.', $provider->extractClaims('Title', 'Content')->summary);
+        Http::assertSentCount(2);
+
+        // The overloaded model is skipped by the next analysis (circuit open).
+        Http::fake(['*models/gemini-fallback:*' => Http::response($valid, 200)]);
+        $provider->extractClaims('Title', 'Content');
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
     public function it_throws_on_invalid_json_response(): void
     {
         Http::fake([

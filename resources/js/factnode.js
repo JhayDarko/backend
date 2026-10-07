@@ -156,7 +156,7 @@ async function pollAnalysis(id) {
             setAnalysisBusy(false);
             return;
         }
-        renderProgress(status.step || status.status, status.progress?.claims_count || 0, status.elapsed_seconds || 0);
+        renderProgress(status.step || status.status, status.progress_details?.claims_count || 0, status.elapsed_seconds || 0, false, status.progress);
         pollTimer = setTimeout(() => pollAnalysis(id), 2500);
     } catch (error) {
         renderFailure(id, `${error.message} El análisis ${id} puede consultarse más tarde.`, false);
@@ -171,7 +171,7 @@ const steps = [
     { id: 'finalizing', label: 'Síntesis' },
 ];
 
-function renderProgress(step, claims = 0, elapsed = 0, shouldScroll = false) {
+function renderProgress(step, claims = 0, elapsed = 0, shouldScroll = false, progressPercent = null) {
     const index = Math.max(0, steps.findIndex((item) => item.id === step));
     const widths = [8, 28, 58, 84];
     const labels = {
@@ -181,7 +181,8 @@ function renderProgress(step, claims = 0, elapsed = 0, shouldScroll = false) {
         finalizing: 'Preparando el informe explicable',
     };
     analysisView.classList.remove('hidden');
-    analysisView.innerHTML = `<div class="progress-card" role="status"><div class="progress-top"><div><p class="report-kicker">ANÁLISIS EN CURSO</p><h3>Estamos reuniendo señales</h3><p>${escapeHtml(labels[step] || 'Procesando información')}${claims ? ` · ${claims} claims extraídos` : ''}</p></div><span class="state-tag pending"><span class="signal-dot"></span> En proceso</span></div><div class="progress-content"><div class="progress-copy"><span>El resultado puede tardar mientras se consultan los proveedores.</span><span>${formatDuration(elapsed)}</span></div><div class="progress-track" role="progressbar" aria-label="Progreso del análisis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${widths[index]}"><div class="progress-fill" style="width:${widths[index]}%"></div></div><div class="progress-steps">${steps.map((item, i) => `<div class="progress-step ${i < index ? 'done' : ''} ${i === index ? 'current' : ''}"><span>${i < index ? '✓' : String(i + 1).padStart(2, '0')}</span><span>${item.label}</span></div>`).join('')}</div><p class="progress-note">Los resultados distinguen entre lo respaldado, lo refutado y lo que sigue sin verificarse.</p></div></div>`;
+    const displayProgress = Number.isFinite(Number(progressPercent)) ? Math.max(0, Math.min(100, Number(progressPercent))) : widths[index];
+    analysisView.innerHTML = `<div class="progress-card" role="status"><div class="progress-top"><div><p class="report-kicker">ANÁLISIS EN CURSO</p><h3>Estamos reuniendo señales</h3><p>${escapeHtml(labels[step] || 'Procesando información')}${claims ? ` · ${claims} claims extraídos` : ''}</p></div><span class="state-tag pending"><span class="signal-dot"></span> En proceso</span></div><div class="progress-content"><div class="progress-copy"><span>El resultado puede tardar mientras se consultan los proveedores.</span><span>${displayProgress}% · ${formatDuration(elapsed)}</span></div><div class="progress-track" role="progressbar" aria-label="Progreso del análisis" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${displayProgress}"><div class="progress-fill" style="width:${displayProgress}%"></div></div><div class="progress-steps">${steps.map((item, i) => `<div class="progress-step ${i < index ? 'done' : ''} ${i === index ? 'current' : ''}"><span>${i < index ? '✓' : String(i + 1).padStart(2, '0')}</span><span>${item.label}</span></div>`).join('')}</div><p class="progress-note">Los resultados distinguen entre lo respaldado, lo refutado y lo que sigue sin verificarse.</p></div></div>`;
     if (shouldScroll) analysisView.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -234,9 +235,11 @@ function renderResult(result) {
     </article>`;
 }
 
+const unverifiableLabels = { opinion: 'Opinión', prediction: 'Predicción', not_checkable: 'No verificable' };
+
 function renderClaim(claim, evaluation, index) {
     const stance = evaluation?.included_in_verdict === false
-        ? ['Contextual', 'unverified', 'icon-question']
+        ? [unverifiableLabels[evaluation.unverifiable_reason] || 'Contextual', 'unverified', 'icon-question']
         : (stanceLabels[evaluation?.stance] || ['Pendiente de evaluación', 'pending', 'icon-question']);
     const conclusion = evaluation?.conclusion || (evaluation?.stance ? stance[0] : 'Aún no hay una conclusión disponible para esta afirmación.');
     const evidence = (claim.verifications || []).flatMap((verification) => [
@@ -247,7 +250,7 @@ function renderClaim(claim, evaluation, index) {
     const verificationNote = (claim.verifications || []).some((item) => item.status === 'no_match')
         ? 'Los verificadores consultados no encontraron una revisión coincidente.'
         : 'La ausencia de enlaces no confirma ni refuta esta afirmación.';
-    return `<details class="claim-item" ${index === 0 ? 'open' : ''}><summary><span class="claim-badge ${stance[1]}"><svg aria-hidden="true"><use href="#${stance[2]}"/></svg>${stance[0]}</span><span class="claim-text">${escapeHtml(claim.text || '')}</span></summary><div class="claim-detail"><p class="claim-conclusion"><strong>Conclusión:</strong> ${escapeHtml(conclusion)}</p>${claim.context ? `<p class="claim-context"><strong>En contexto:</strong> ${escapeHtml(claim.context)}</p>` : ''}${evaluation?.reasoning ? `<p class="claim-reasoning"><strong>Evaluación:</strong> ${escapeHtml(evaluation.reasoning)}${Number.isFinite(Number(evaluation.confidence)) ? ` <span>Confianza ${Math.round(Number(evaluation.confidence) * 100)}%</span>` : ''}</p>` : ''}${uniqueEvidence.length ? `<div class="evidence-list">${uniqueEvidence.map(renderEvidence).join('')}</div>` : `<p class="no-evidence">${verificationNote}</p>`}</div></details>`;
+    return `<details class="claim-item" ${index === 0 ? 'open' : ''}><summary><span class="claim-badge ${stance[1]}"><svg aria-hidden="true"><use href="#${stance[2]}"/></svg>${stance[0]}</span><span class="claim-text">${evaluation?.is_central ? '<span class="claim-central">Afirmación principal</span> ' : ''}${escapeHtml(claim.text || '')}</span></summary><div class="claim-detail"><p class="claim-conclusion"><strong>Conclusión:</strong> ${escapeHtml(conclusion)}</p>${claim.context ? `<p class="claim-context"><strong>En contexto:</strong> ${escapeHtml(claim.context)}</p>` : ''}${evaluation?.reasoning ? `<p class="claim-reasoning"><strong>Evaluación:</strong> ${escapeHtml(evaluation.reasoning)}${Number.isFinite(Number(evaluation.confidence)) ? ` <span>Confianza ${Math.round(Number(evaluation.confidence) * 100)}%</span>` : ''}</p>` : ''}${uniqueEvidence.length ? `<div class="evidence-list">${uniqueEvidence.map(renderEvidence).join('')}</div>` : `<p class="no-evidence">${verificationNote}</p>`}</div></details>`;
 }
 
 function renderEvidence(item) {

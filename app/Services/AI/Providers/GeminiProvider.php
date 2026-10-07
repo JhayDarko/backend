@@ -5,6 +5,7 @@ namespace App\Services\AI\Providers;
 use App\Contracts\AiProviderInterface;
 use App\Exceptions\AiProviderException;
 use App\Services\AI\DTO\ExtractedClaimsResponse;
+use App\Services\AI\GeminiModelCircuit;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -27,6 +28,8 @@ final class GeminiProvider implements AiProviderInterface
 
     private string $promptVersion;
 
+    private ?string $lastConnectionError = null;
+
     /** @var list<string> */
     private const FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 
@@ -44,7 +47,7 @@ final class GeminiProvider implements AiProviderInterface
         $this->apiBaseUrl = rtrim((string) config('ai.gemini.api_base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
         $this->model = (string) config('ai.gemini.model', 'gemini-3.6-flash');
         $this->temperature = (float) config('ai.gemini.temperature', 0.7);
-        $this->timeout = (int) config('ai.timeout', 60);
+        $this->timeout = (int) config('ai.gemini.extraction_timeout', config('ai.timeout', 60));
         $this->promptVersion = (string) config('ai.prompt_version', '1.0.0');
 
         if ($this->apiKeys === []) {
@@ -68,9 +71,10 @@ final class GeminiProvider implements AiProviderInterface
         ], fn (mixed $model): bool => is_string($model) && $model !== '')));
 
         $lastRateLimit = null;
+        $this->lastConnectionError = null;
 
         foreach ($this->apiKeys as $keyIndex => $apiKey) {
-            foreach ($models as $model) {
+            foreach (GeminiModelCircuit::available($models) as $model) {
                 try {
                     $result = $this->tryExtractWithModel($model, $apiKey, $title, $content, $description, $keyIndex);
                     if ($result !== null) {
@@ -96,6 +100,10 @@ final class GeminiProvider implements AiProviderInterface
             throw $lastRateLimit;
         }
 
+        if ($this->lastConnectionError !== null) {
+            throw AiProviderException::connection($this->lastConnectionError);
+        }
+
         throw AiProviderException::invalidResponse('All configured Gemini models are unavailable. Please try again later.');
     }
 
@@ -112,50 +120,52 @@ final class GeminiProvider implements AiProviderInterface
                 'responseSchema' => $this->getJsonSchema(),
             ],
         ];
-        $url = "{$this->apiBaseUrl}/models/{$model}:generateContent?key={$apiKey}";
-
-        for ($attempt = 1; $attempt <= 3; $attempt++) {
-            try {
-                $response = Http::timeout($this->timeout)
-                    ->connectTimeout(10)
-                    ->acceptJson()
-                    ->post($url, $payload);
-            } catch (ConnectionException $exception) {
-                throw AiProviderException::connection($exception->getMessage());
-            }
-
-            if ($response->status() === 404) {
-                Log::warning('Gemini model not available, trying fallback', ['model' => $model]);
-
-                return null;
-            }
-
-            if ($response->status() === 503 && $attempt < 3) {
-                sleep($attempt);
-
-                continue;
-            }
-
-            if ($response->status() === 503) {
-                Log::warning('Gemini model remained unavailable after retries, trying fallback', ['model' => $model]);
-
-                return null;
-            }
-
-            try {
-                return $this->handleResponse($response);
-            } catch (AiProviderException $exception) {
-                Log::error('Claim extraction failed', [
-                    'provider' => $this->getName(),
-                    'model' => $model,
-                    'key_index' => $keyIndex + 1,
-                    'error' => $exception->getMessage(),
-                ]);
-                throw $exception;
-            }
+        $thinkingLevel = trim((string) config('ai.gemini.extraction_thinking_level', ''));
+        if ($thinkingLevel !== '') {
+            $payload['generationConfig']['thinkingConfig'] = ['thinkingLevel' => $thinkingLevel];
         }
 
-        return null;
+        $url = "{$this->apiBaseUrl}/models/{$model}:generateContent?key={$apiKey}";
+
+        // An overloaded model (503) or a stalled request is not worth retrying on the same model:
+        // trip the circuit so this and the next analyses go straight to the next model.
+        try {
+            $response = Http::timeout($this->timeout)
+                ->connectTimeout(10)
+                ->acceptJson()
+                ->post($url, $payload);
+        } catch (ConnectionException $exception) {
+            Log::warning('Gemini request failed or timed out, trying fallback model', ['model' => $model]);
+            GeminiModelCircuit::trip($model);
+            $this->lastConnectionError = $exception->getMessage();
+
+            return null;
+        }
+
+        if ($response->status() === 404) {
+            Log::warning('Gemini model not available, trying fallback', ['model' => $model]);
+
+            return null;
+        }
+
+        if ($response->status() === 503) {
+            Log::warning('Gemini model overloaded, trying fallback', ['model' => $model]);
+            GeminiModelCircuit::trip($model);
+
+            return null;
+        }
+
+        try {
+            return $this->handleResponse($response);
+        } catch (AiProviderException $exception) {
+            Log::error('Claim extraction failed', [
+                'provider' => $this->getName(),
+                'model' => $model,
+                'key_index' => $keyIndex + 1,
+                'error' => $exception->getMessage(),
+            ]);
+            throw $exception;
+        }
     }
 
     public function getName(): string
@@ -174,6 +184,8 @@ final class GeminiProvider implements AiProviderInterface
             ? "**Description:** {$description}\n\n"
             : '';
 
+        $maxClaims = max(1, (int) config('ai.extraction.max_claims', 10));
+
         return <<<PROMPT
 You are an expert at extracting factual claims from news articles for verification purposes.
 
@@ -188,8 +200,8 @@ You are an expert at extracting factual claims from news articles for verificati
 
 **Your task:**
 
-1. Extract all factual claims from the article.
-2. Identify key entities (people, places, organizations, etc.).
+1. Extract the factual claims of the article (at most {$maxClaims}, keeping the most important ones).
+2. Identify key entities (people, places, organizations, etc.), at most 8.
 3. List sources mentioned in the article.
 4. Identify potential misinformation signals without concluding the article is fake.
 
@@ -200,8 +212,10 @@ You are an expert at extracting factual claims from news articles for verificati
 - Separate independent claims. One claim per statement.
 - Maintain proper names, dates, quantities, and locations exactly as written.
 - Distinguish facts from opinions and predictions.
-- For each claim, provide enough context to understand it independently.
+- For each claim, provide enough context to understand it independently, in one short sentence (max 25 words).
 - Avoid duplicate claims.
+- Calibrate importance: 0.9-1.0 only for the central thesis of the article (what the headline asserts), 0.5-0.7 for supporting facts, 0.1-0.4 for background or peripheral details.
+- Set verifiable=false for claims that cannot be checked against external sources (opinions, predictions, private statements).
 
 Return JSON matching the supplied schema. Each claim must have importance between 0 and 1.
 PROMPT;

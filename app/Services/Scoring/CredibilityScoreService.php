@@ -11,6 +11,7 @@ use App\Models\Claim;
 use App\Models\ClaimVerification;
 use App\Models\Evidence;
 use App\Models\ModelPrediction;
+use App\Services\FactCheck\FactCheckRatingNormalizer;
 use Illuminate\Support\Collection;
 
 class CredibilityScoreService
@@ -41,8 +42,9 @@ class CredibilityScoreService
             ->keyBy('claimId');
         $factCheckRatings = config('scoring.fact_check_rating_scores', []);
         $claimEvaluations = $this->buildClaimAssessments($claims, $verifications, $evaluationByClaim, $factCheckRatings);
+        $claimEvaluations = $this->applyClaimWeights($claimEvaluations);
         $factualClaims = collect($claimEvaluations)->where('included_in_verdict', true);
-        $totalClaimWeight = $factualClaims->sum('importance');
+        $totalClaimWeight = $factualClaims->sum('weight');
         $evidenceCoverage = $this->calculateCoverage($factualClaims, 'evidence_backed', $totalClaimWeight);
         $factCheckCoverage = $this->calculateCoverage($factualClaims, 'fact_checked', $totalClaimWeight);
         $evidenceScore = $this->calculateWeightedClaimScore($factualClaims, $totalClaimWeight);
@@ -107,6 +109,9 @@ class CredibilityScoreService
                 'verifications_count' => $verifications->count(),
                 'evidences_count' => $evidences->count(),
                 'factual_claims_count' => $factualClaims->count(),
+                'central_claim_id' => collect($claimEvaluations)->firstWhere('is_central', true)['claim_id'] ?? null,
+                'unverifiable_claims_count' => collect($claimEvaluations)->where('included_in_verdict', false)->count(),
+                'unresolved_claims_count' => $factualClaims->where('evidence_backed', false)->count(),
                 'evidence_coverage' => round($evidenceCoverage, 4),
                 'fact_check_coverage' => round($factCheckCoverage, 4),
                 'has_bert_prediction' => $prediction !== null,
@@ -158,12 +163,26 @@ class CredibilityScoreService
 
         foreach ($claims as $claim) {
             $claimVerifications = $verifications->where('claim_id', $claim->id);
-            $factChecks = $claimVerifications->filter(fn (ClaimVerification $verification): bool =>
-                $verification->status === 'matched'
-                && ($verification->provider === 'google_fact_check' || $verification->relation === 'external_fact_check')
-                && isset($factCheckRatings[strtolower((string) $verification->normalized_rating)])
-                && strtolower((string) $verification->normalized_rating) !== 'unknown'
-            );
+            $ratingByVerification = [];
+            $factChecks = $claimVerifications->filter(function (ClaimVerification $verification) use ($factCheckRatings, &$ratingByVerification): bool {
+                if ($verification->status !== 'matched'
+                    || ($verification->provider !== 'google_fact_check' && $verification->relation !== 'external_fact_check')) {
+                    return false;
+                }
+
+                $rating = strtolower((string) $verification->normalized_rating);
+                if ($rating === '' || $rating === 'unknown') {
+                    $rating = FactCheckRatingNormalizer::normalize((string) $verification->raw_rating)['normalized_rating'];
+                }
+
+                if ($rating === 'unknown' || ! isset($factCheckRatings[$rating])) {
+                    return false;
+                }
+
+                $ratingByVerification[$verification->id] = $rating;
+
+                return true;
+            });
             $ratingByPublisher = [];
             $factCheckSources = [];
 
@@ -171,7 +190,7 @@ class CredibilityScoreService
                 $url = (string) ($factCheck->fact_check_url ?? '');
                 $domain = strtolower((string) ($factCheck->publisher_site ?: parse_url($url, PHP_URL_HOST) ?: ''));
                 $publisherKey = $domain !== '' ? $domain : strtolower((string) ($factCheck->publisher ?: $url ?: $factCheck->id));
-                $rating = strtolower((string) $factCheck->normalized_rating);
+                $rating = $ratingByVerification[$factCheck->id];
                 $ratingByPublisher[$publisherKey][] = (float) $factCheckRatings[$rating];
                 $factCheckSources[$publisherKey] = [
                     'publisher' => $factCheck->publisher,
@@ -189,16 +208,19 @@ class CredibilityScoreService
             if (! isset($stanceScores[$aiStance])) {
                 $aiStance = 'unverified';
             }
+            $domainPolicy = app(\App\Services\Search\SourceDomainPolicy::class);
             $searchEvidence = $claimVerifications
                 ->filter(fn (ClaimVerification $verification): bool => $verification->relation === 'search_evidence' && $verification->status === 'matched')
                 ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
+                ->reject(fn ($evidence): bool => $domainPolicy->isBlocked((string) $evidence->url))
                 ->unique('id')
                 ->values();
             $linkedEvidence = $claimVerifications
                 ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
+                ->reject(fn ($evidence): bool => $domainPolicy->isBlocked((string) $evidence->url))
                 ->unique('id')
                 ->values();
-            $isFactual = (bool) $claim->verifiable && strtolower((string) $claim->type) !== 'opinion';
+            $isFactual = (bool) $claim->verifiable && ! in_array(strtolower((string) $claim->type), ['opinion', 'prediction'], true);
             $factChecked = $factCheckScore !== null;
             $hasModelAssessment = $evaluation !== null && $aiStance !== 'unverified' && $searchEvidence->isNotEmpty();
             $evidenceBacked = $isFactual && ($factChecked || $hasModelAssessment);
@@ -217,7 +239,11 @@ class CredibilityScoreService
                     ? $reasoning.' No hay evidencia externa vinculada suficiente para sostener esta evaluación.'
                     : 'No se encontró una revisión de fact-check ni evidencia externa suficiente; el claim queda sin verificar.';
             } elseif (! $isFactual) {
-                $reasoning = $reasoning !== '' ? $reasoning : 'Es una opinión o no se marcó como afirmación factual verificable.';
+                $reasoning = $reasoning !== '' ? $reasoning : match (strtolower((string) $claim->type)) {
+                    'opinion' => 'Es una opinión: no se verifica como hecho y no pesa en el veredicto.',
+                    'prediction' => 'Es una predicción sobre el futuro: no se puede comprobar todavía y no pesa en el veredicto.',
+                    default => 'No es comprobable con fuentes externas, por lo que no pesa en el veredicto.',
+                };
             }
 
             $claimScore = 50.0;
@@ -260,6 +286,49 @@ class CredibilityScoreService
         return $assessments;
     }
 
+    /**
+     * The main claim (highest importance) weighs more; secondary claims without evidence weigh less
+     * so minor unverifiable details do not drag the verdict. Non-factual claims are labelled by reason.
+     *
+     * @param  array<int, array<string, mixed>>  $assessments
+     * @return array<int, array<string, mixed>>
+     */
+    private function applyClaimWeights(array $assessments): array
+    {
+        $ranked = collect($assessments)->where('included_in_verdict', true)->sortByDesc('importance')->values();
+        $margin = (float) config('scoring.central_claim_margin', 0.1);
+        $centralId = $ranked->isNotEmpty()
+            && ($ranked->count() === 1 || $ranked[0]['importance'] - $ranked[1]['importance'] >= $margin)
+            ? $ranked[0]['claim_id']
+            : null;
+        $centralWeight = max(1.0, (float) config('scoring.central_claim_weight', 2.0));
+        $unresolvedWeight = max(0.0, min(1.0, (float) config('scoring.unverified_secondary_weight', 0.4)));
+
+        return array_map(function (array $assessment) use ($centralId, $centralWeight, $unresolvedWeight): array {
+            $isCentral = $assessment['included_in_verdict'] && $assessment['claim_id'] === $centralId;
+            $weight = $assessment['importance'];
+            if ($isCentral) {
+                $weight *= $centralWeight;
+            } elseif ($assessment['included_in_verdict'] && ! $assessment['evidence_backed']) {
+                $weight *= $unresolvedWeight;
+            }
+
+            $reason = match (true) {
+                $assessment['included_in_verdict'] && $assessment['evidence_backed'] => null,
+                $assessment['included_in_verdict'] => 'no_evidence_found',
+                strtolower((string) $assessment['claim_type']) === 'opinion' => 'opinion',
+                strtolower((string) $assessment['claim_type']) === 'prediction' => 'prediction',
+                default => 'not_checkable',
+            };
+
+            return $assessment + [
+                'is_central' => $isCentral,
+                'weight' => round($weight, 4),
+                'unverifiable_reason' => $reason,
+            ];
+        }, $assessments);
+    }
+
     private function stanceForScore(float $score): string
     {
         return match (true) {
@@ -285,7 +354,7 @@ class CredibilityScoreService
             return 0.0;
         }
 
-        return min(1.0, $claims->where($field, true)->sum('importance') / $totalWeight);
+        return min(1.0, $claims->where($field, true)->sum('weight') / $totalWeight);
     }
 
     private function calculateWeightedClaimScore(Collection $claims, float $totalWeight): float
@@ -294,7 +363,7 @@ class CredibilityScoreService
             return 50.0;
         }
 
-        $weightedScore = $claims->sum(fn (array $claim): float => $claim['claim_score'] * $claim['importance']);
+        $weightedScore = $claims->sum(fn (array $claim): float => $claim['claim_score'] * $claim['weight']);
 
         return round($weightedScore / $totalWeight, 2);
     }
@@ -474,10 +543,10 @@ class CredibilityScoreService
             return ['label' => 'insufficient_evidence', 'display' => 'Evidencia insuficiente'];
         }
 
-        $totalWeight = max(0.1, $claimEvaluations->sum('importance'));
-        $supportedWeight = $claimEvaluations->where('stance', 'supported')->sum('importance') / $totalWeight;
-        $refutedWeight = $claimEvaluations->where('stance', 'refuted')->sum('importance') / $totalWeight;
-        $mixedWeight = $claimEvaluations->where('stance', 'mixed')->sum('importance') / $totalWeight;
+        $totalWeight = max(0.1, $claimEvaluations->sum('weight'));
+        $supportedWeight = $claimEvaluations->where('stance', 'supported')->sum('weight') / $totalWeight;
+        $refutedWeight = $claimEvaluations->where('stance', 'refuted')->sum('weight') / $totalWeight;
+        $mixedWeight = $claimEvaluations->where('stance', 'mixed')->sum('weight') / $totalWeight;
 
         if (($supportedWeight >= 0.2 && $refutedWeight >= 0.2) || $mixedWeight >= 0.2) {
             return ['label' => 'partially_true', 'display' => 'Parcialmente cierta'];
@@ -511,14 +580,13 @@ class CredibilityScoreService
         $unverified = $factualClaims->where('stance', 'unverified')->count();
 
         return sprintf(
-            'El análisis encontró %d afirmaciones verificables: %d respaldadas, %d refutadas, %d mixtas y %d sin verificar. La evaluación general es “%s” y la cobertura de evidencia es %.0f%%. Esta síntesis es automática; revisa las fuentes vinculadas antes de sacar conclusiones.',
+            'De los %d hechos principales que se pudieron comprobar, %d están respaldados, %d fueron desmentidos, %d son parcialmente ciertos o contradictorios y %d no se pudieron confirmar. En conjunto, la noticia resulta %s. La falta de confirmación no implica que algo sea falso: conviene consultar las fuentes enlazadas.',
             $factualClaims->count(),
             $supported,
             $refuted,
             $mixed,
             $unverified,
             strtolower($truthAssessment['display']),
-            $evidenceCoverage * 100,
         );
     }
 
@@ -526,14 +594,14 @@ class CredibilityScoreService
     {
         if ($truthAssessment['label'] === 'insufficient_evidence') {
             return sprintf(
-                'La evidencia disponible cubre %.0f%% de la importancia factual analizable, por debajo del mínimo de %.0f%%. Por eso el sistema se abstiene de declarar que la noticia es verdadera o falsa.',
+                'Solo se pudo contrastar con fuentes externas cerca del %.0f%% de lo que afirma la noticia, menos del %.0f%% mínimo necesario. Por eso no se afirma que sea verdadera ni falsa.',
                 $evidenceCoverage * 100,
                 (float) config('scoring.minimum_evidence_coverage', 0.60) * 100,
             );
         }
 
         return sprintf(
-            'La evaluación pondera afirmaciones individuales por importancia, separa revisiones de fact-check de resultados de búsqueda y cubre %.0f%% de las afirmaciones; %.0f%% cuenta con rating de fact-check directo.',
+            'Se contrastó con fuentes externas cerca del %.0f%% de lo que afirma la noticia, dándole más peso a su idea principal; en %.0f%% hubo una verificación directa de verificadores de datos.',
             $evidenceCoverage * 100,
             $factCheckCoverage * 100,
         );

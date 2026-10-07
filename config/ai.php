@@ -75,6 +75,17 @@ return [
             explode(',', env('GEMINI_FALLBACK_MODELS', 'gemini-3.7-flash,gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite')),
         )),
         'temperature' => (float) env('GEMINI_TEMPERATURE', 0.7),
+        // Per-request timeouts (seconds); AI_PROVIDER_TIMEOUT is too long to detect a stalled model.
+        'extraction_timeout' => (int) env('GEMINI_EXTRACTION_TIMEOUT', 60),
+        'analyst_timeout' => (int) env('GEMINI_ANALYST_TIMEOUT', 150),
+        // Seconds an overloaded model (503/timeout) is skipped by later requests.
+        'unavailable_cooldown' => (int) env('GEMINI_UNAVAILABLE_COOLDOWN', 120),
+        // Optional (minimal|low|medium|high): lower reasoning effort makes extraction noticeably faster.
+        'extraction_thinking_level' => env('GEMINI_EXTRACTION_THINKING_LEVEL'),
+    ],
+
+    'extraction' => [
+        'max_claims' => (int) env('CLAIM_EXTRACTION_MAX_CLAIMS', 10),
     ],
 
     /*

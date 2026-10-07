@@ -32,6 +32,15 @@ final class AnalysisController extends Controller
             $query->where('article_id', $articleId);
         }
 
+        if ($request->query('pagination') === 'cursor' || $request->query('cursor') !== null) {
+            $analyses = $query
+                ->orderByDesc('id')
+                ->cursorPaginate($perPage)
+                ->appends($request->except('cursor'));
+
+            return AnalysisResource::collection($analyses);
+        }
+
         $analyses = $query->latest('id')->paginate($perPage);
 
         return AnalysisResource::collection($analyses);

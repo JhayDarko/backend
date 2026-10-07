@@ -46,7 +46,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         $this->apiBaseUrl = config('ai.gemini.api_base_url', 'https://generativelanguage.googleapis.com/v1beta');
         $this->model = config('ai.gemini.model', 'gemini-2.0-flash');
         $this->temperature = (float) config('ai.gemini.temperature', 0.2); // Lower temperature for analytical synthesis
-        $this->timeout = (int) config('ai.timeout', 60);
+        $this->timeout = (int) config('ai.gemini.analyst_timeout', config('ai.timeout', 60));
     }
 
     /** @var list<string> */
@@ -81,7 +81,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
 
         $lastRateLimit = null;
         foreach ($this->apiKeys as $keyIndex => $apiKey) {
-            foreach ($modelsToTry as $attemptModel) {
+            foreach (\App\Services\AI\GeminiModelCircuit::available(array_values($modelsToTry)) as $attemptModel) {
                 try {
                     $result = $this->trySynthesizeWithModel(
                         $attemptModel, $apiKey, $article, $claims, $verifications, $evidences, $prediction, $sourceAnalysis
@@ -148,10 +148,17 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
             $maxRetries = 3;
 
             for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-                $response = Http::timeout($this->timeout)
-                    ->connectTimeout(10)
-                    ->withHeader('Content-Type', 'application/json')
-                    ->post($url, $payload);
+                try {
+                    $response = Http::timeout($this->timeout)
+                        ->connectTimeout(10)
+                        ->withHeader('Content-Type', 'application/json')
+                        ->post($url, $payload);
+                } catch (\Illuminate\Http\Client\ConnectionException $exception) {
+                    Log::warning('Gemini analyst request failed or timed out, trying fallback model', ['model' => $model]);
+                    \App\Services\AI\GeminiModelCircuit::trip($model);
+
+                    return null;
+                }
 
                 if ($response->status() === 404) {
                     Log::warning('Gemini analyst model not available, trying fallback', ['model' => $model]);
@@ -172,15 +179,9 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
                 }
 
                 if ($response->status() === 503) {
-                    $waitSeconds = min(4 ** $attempt, 60);
-                    Log::warning("Gemini analyst 503 on {$model}, retrying in {$waitSeconds}s", [
-                        'attempt' => $attempt,
-                        'model'   => $model,
-                    ]);
-                    if ($attempt < $maxRetries) {
-                        sleep($waitSeconds);
-                        continue;
-                    }
+                    Log::warning("Gemini analyst 503 on {$model}, trying fallback model", ['model' => $model]);
+                    \App\Services\AI\GeminiModelCircuit::trip($model);
+
                     return null;
                 }
 
@@ -229,16 +230,21 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         SourceAnalysisResult $sourceAnalysis,
     ): string {
         $claimsData = $claims->map(function (Claim $claim) use ($verifications): array {
+            $domainPolicy = app(\App\Services\Search\SourceDomainPolicy::class);
             $claimVerifications = $verifications->where('claim_id', $claim->id);
             $claimEvidence = $claimVerifications
                 ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
                 ->unique('url')
+                ->reject(fn (Evidence $evidence): bool => $domainPolicy->isBlocked((string) $evidence->url))
+                ->sortBy(fn (Evidence $evidence): int => $domainPolicy->isTrusted((string) $evidence->url) ? 0 : 1)
+                ->take(5)
                 ->map(fn (Evidence $evidence): array => [
                     'title' => $evidence->title,
                     'url' => $evidence->url,
-                    'snippet' => $evidence->snippet,
+                    'snippet' => \Illuminate\Support\Str::limit((string) $evidence->snippet, 400),
                     'domain' => $evidence->metadata['domain'] ?? parse_url((string) $evidence->url, PHP_URL_HOST),
                     'provider' => $evidence->metadata['provider'] ?? null,
+                    'trusted_source' => $domainPolicy->isTrusted((string) $evidence->url),
                 ])
                 ->values()
                 ->all();
@@ -298,7 +304,8 @@ REGLAS CRÍTICAS:
 8. El BERT es una señal auxiliar de estilo y no demuestra por sí solo que un hecho sea verdadero o falso.
 9. El resumen debe distinguir lo confirmado, refutado, mixto y no verificado; no conviertas falta de resultados en prueba de falsedad.
 10. Detecta falacias, sesgos y señales de alerta como contexto, nunca como prueba factual.
-11. Devuelve un JSON estructurado con el formato requerido.
+11. El campo summary y key_findings los lee el público general: redactalos en lenguaje natural hablando de "la noticia" y "las afirmaciones" o hechos concretos, sin nombrar claims, IDs, BERT, el clasificador, fact-checking como proceso interno, búsquedas, proveedores, puntajes ni cobertura.
+12. Devuelve un JSON estructurado con el formato requerido.
 
 CONTEXTO DE ANÁLISIS:
 {$contextJson}
@@ -315,7 +322,7 @@ PROMPT;
             'properties' => [
                 'summary' => [
                     'type' => 'string',
-                    'description' => 'Resumen sintético del análisis cualitativo y estado de veracidad.',
+                    'description' => 'Veredicto final para el lector, en 3 a 5 frases de lenguaje claro y sin tecnicismos: qué se pudo confirmar, qué no y qué tan fiable es la noticia. No menciones claims, BERT, modelos, puntajes, cobertura, evidencias vinculadas, proveedores ni el funcionamiento del sistema.',
                 ],
                 'consistency_score' => [
                     'type' => 'number',
@@ -369,7 +376,7 @@ PROMPT;
                 'key_findings' => [
                     'type' => 'array',
                     'items' => ['type' => 'string'],
-                    'description' => 'Puntos clave o hallazgos principales del análisis.',
+                    'description' => 'Puntos clave para el lector, en lenguaje sencillo, sin mencionar claims, BERT, modelos ni detalles del sistema.',
                 ],
             ],
             'required' => [

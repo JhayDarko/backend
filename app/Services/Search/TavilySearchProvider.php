@@ -50,18 +50,21 @@ final class TavilySearchProvider implements SearchProviderInterface
 
         $limit = (int) ($options['max_results'] ?? $this->maxResults);
 
+        $excluded = array_slice(array_values(array_filter((array) ($options['exclude_domains'] ?? []), 'is_string')), 0, 150);
+
         try {
             $response = Http::timeout($this->timeout)
                 ->connectTimeout($this->connectTimeout)
                 ->acceptJson()
-                ->post($this->apiBaseUrl, [
+                ->post($this->apiBaseUrl, array_filter([
                     'api_key' => $this->apiKey,
                     'query' => $cleanQuery,
-                    'max_results' => $limit,
+                    'max_results' => min($limit, 20),
                     'include_answer' => false,
                     'include_raw_content' => false,
                     'include_images' => false,
-                ]);
+                    'exclude_domains' => $excluded,
+                ], fn (mixed $value): bool => $value !== []));
         } catch (\Illuminate\Http\Client\ConnectionException $exception) {
             throw AiProviderException::connection($exception->getMessage());
         }
