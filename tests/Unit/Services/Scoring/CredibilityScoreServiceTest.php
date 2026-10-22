@@ -25,7 +25,7 @@ class CredibilityScoreServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new CredibilityScoreService();
+        $this->service = new CredibilityScoreService;
     }
 
     public function test_calculates_high_credibility_score_with_strong_positive_signals(): void
@@ -449,4 +449,17 @@ class CredibilityScoreServiceTest extends TestCase
         $this->assertSame(0.9, $result->breakdown['signals']['evidence_coverage']);
         $this->assertSame(2, $result->breakdown['signals']['unverifiable_claims_count']);
         $this->assertNotNull($minor->id);
-    }}
+    }
+
+    public function test_language_score_is_neutral_when_the_classifier_is_unsure_and_never_condemns_on_style_alone(): void
+    {
+        $method = new \ReflectionMethod($this->service, 'calculateLanguageScore');
+        $make = fn (string $label, float $p) => new ModelPrediction(['prediction_label' => $label, 'probability' => $p, 'confidence_score' => $p]);
+
+        $this->assertSame(50.0, $method->invoke($this->service, $make('REAL', 0.55)));
+        $this->assertSame(50.0, $method->invoke($this->service, null));
+        $this->assertEqualsWithDelta(95.0, $method->invoke($this->service, $make('REAL', 0.95)), 0.001);
+        $this->assertEqualsWithDelta(20.0, $method->invoke($this->service, $make('FAKE', 0.99)), 0.001);
+        $this->assertEqualsWithDelta(35.0, $method->invoke($this->service, $make('FAKE', 0.65)), 0.001);
+    }
+}

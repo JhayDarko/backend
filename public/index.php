@@ -1,4 +1,5 @@
 <?php
+
 // Increase PHP max execution time for long-running AI calls
 if (function_exists('set_time_limit')) {
     @set_time_limit(300); // 5 minutes

@@ -8,7 +8,7 @@ final class DomainNormalizer
     {
         $host = parse_url($url, PHP_URL_HOST);
 
-        if (!$host) {
+        if (! $host) {
             throw new \InvalidArgumentException('Invalid URL.');
         }
 

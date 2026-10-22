@@ -22,7 +22,7 @@ final class ArticleController extends Controller
     {
         $perPage = min(max((int) $request->input('per_page', 15), 1), 100);
 
-        $query = Article::query()->with('source');
+        $query = Article::query()->visibleTo($request->user())->with('source');
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -55,7 +55,9 @@ final class ArticleController extends Controller
 
     public function show(Article $article): ArticleResource
     {
-        $article->load(['source', 'analyses.score']);
+        $this->authorize('view', $article);
+
+        $article->load(['source', 'analyses' => fn ($q) => $q->where('user_id', request()->user()->id), 'analyses.score']);
 
         return new ArticleResource($article);
     }
@@ -69,10 +71,12 @@ final class ArticleController extends Controller
                     content: $request->validated('content'),
                     title: $request->validated('title'),
                     authorName: $request->validated('author_name'),
+                    userId: $request->user()->id,
                 );
             } else {
                 $article = $this->ingestionService->ingest(
-                    $request->validated('url')
+                    $request->validated('url'),
+                    $request->user()->id,
                 );
             }
 

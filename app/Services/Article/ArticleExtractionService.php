@@ -21,7 +21,7 @@ final class ArticleExtractionService
             ])
             ->get($url);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new RuntimeException(
                 "Unable to retrieve article. HTTP status: {$response->status()}"
             );
@@ -48,7 +48,7 @@ final class ArticleExtractionService
             $this->extractHtmlTitle($crawler),
         ]);
 
-        if (!$title) {
+        if (! $title) {
             throw new RuntimeException(
                 'Article title could not be extracted.'
             );
@@ -140,14 +140,14 @@ final class ArticleExtractionService
                  */
                 $data = json_decode($json, true);
 
-                if (!is_array($data)) {
+                if (! is_array($data)) {
                     return;
                 }
 
                 $objects = $this->flattenJsonLd($data);
 
                 foreach ($objects as $object) {
-                    if (!is_array($object)) {
+                    if (! is_array($object)) {
                         continue;
                     }
 
@@ -163,7 +163,7 @@ final class ArticleExtractionService
                         || str_contains($type, 'newsarticle')
                         || str_contains($type, 'reportagenewsarticle');
 
-                    if (!$isArticle) {
+                    if (! $isArticle) {
                         continue;
                     }
 
@@ -173,23 +173,23 @@ final class ArticleExtractionService
                      */
                     $score = 0;
 
-                    if (!empty($object['headline'])) {
+                    if (! empty($object['headline'])) {
                         $score += 3;
                     }
 
-                    if (!empty($object['articleBody'])) {
+                    if (! empty($object['articleBody'])) {
                         $score += 4;
                     }
 
-                    if (!empty($object['datePublished'])) {
+                    if (! empty($object['datePublished'])) {
                         $score += 2;
                     }
 
-                    if (!empty($object['author'])) {
+                    if (! empty($object['author'])) {
                         $score += 1;
                     }
 
-                    if (!empty($object['description'])) {
+                    if (! empty($object['description'])) {
                         $score += 1;
                     }
 
@@ -404,7 +404,7 @@ final class ArticleExtractionService
              *   "name": "Juan Pérez"
              * }
              */
-            if (!empty($jsonLdAuthor['name'])) {
+            if (! empty($jsonLdAuthor['name'])) {
                 return $this->cleanText(
                     (string) $jsonLdAuthor['name']
                 );
@@ -421,13 +421,13 @@ final class ArticleExtractionService
                         $authors[] = $author;
                     } elseif (
                         is_array($author)
-                        && !empty($author['name'])
+                        && ! empty($author['name'])
                     ) {
                         $authors[] = $author['name'];
                     }
                 }
 
-                if (!empty($authors)) {
+                if (! empty($authors)) {
                     return $this->cleanText(
                         implode(', ', $authors)
                     );
@@ -456,7 +456,7 @@ final class ArticleExtractionService
 
             $value = $node->attr('content');
 
-            if (!$value) {
+            if (! $value) {
                 $value = $node->text(null, false);
             }
 
@@ -524,7 +524,7 @@ final class ArticleExtractionService
             ),
         ]);
 
-        if (!$date) {
+        if (! $date) {
             return null;
         }
 
@@ -567,13 +567,13 @@ final class ArticleExtractionService
          */
         $image = null;
 
-        if (!empty($jsonLd['image'])) {
+        if (! empty($jsonLd['image'])) {
             $image = $this->extractImageValue(
                 $jsonLd['image']
             );
         }
 
-        if (!$image) {
+        if (! $image) {
             $image = $this->extractMeta(
                 $crawler,
                 'property',
@@ -581,7 +581,7 @@ final class ArticleExtractionService
             );
         }
 
-        if (!$image) {
+        if (! $image) {
             $image = $this->extractMeta(
                 $crawler,
                 'name',
@@ -609,7 +609,7 @@ final class ArticleExtractionService
         /*
          * Se conserva el tipo JSON-LD.
          */
-        if (!empty($jsonLd['@type'])) {
+        if (! empty($jsonLd['@type'])) {
             $metadata['schema_type'] = $jsonLd['@type'];
         }
 
@@ -645,7 +645,7 @@ final class ArticleExtractionService
         }
 
         if (is_array($image)) {
-            if (!empty($image['url'])) {
+            if (! empty($image['url'])) {
                 return $this->cleanText(
                     (string) $image['url']
                 );

@@ -1,0 +1,319 @@
+import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { A11yService } from '../core/a11y.service';
+import { AuthService } from '../core/auth.service';
+import { errorMessage } from '../core/http';
+
+@Component({
+  selector: 'app-login',
+  imports: [FormsModule, RouterLink],
+  template: `
+    <section class="card auth-card narrow" aria-labelledby="t">
+      <div class="auth-brand" aria-hidden="true">
+        <span class="auth-mark">
+          <svg viewBox="0 0 64 64">
+            <g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none">
+              <path d="M12 52V12" />
+              <path d="M12 12L46 46" />
+              <path d="M52 44V12" />
+            </g>
+            <circle cx="12" cy="52" r="6.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="6.5" fill="currentColor" />
+            <circle cx="52" cy="12" r="6.5" fill="currentColor" />
+            <circle
+              class="open-node"
+              cx="52"
+              cy="52"
+              r="6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="4"
+            />
+          </svg>
+        </span>
+        <span><strong>Fact</strong><b>Node</b></span>
+      </div>
+      <h1 id="t">Ingresar</h1>
+      @if (expired) {
+        <p class="alert info" role="status">Tu sesión expiró. Ingresa de nuevo.</p>
+      }
+      @if (error()) {
+        <p class="alert" role="alert">{{ error() }}</p>
+      }
+      <form (ngSubmit)="submit()" class="stack" novalidate>
+        <div>
+          <label for="email">Correo electrónico</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+            [(ngModel)]="email"
+            [attr.aria-invalid]="!!error()"
+          />
+        </div>
+        <div>
+          <label for="password">Contraseña</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            [(ngModel)]="password"
+            [attr.aria-invalid]="!!error()"
+          />
+        </div>
+        <button class="btn" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Ingresando…' : 'Ingresar' }}
+        </button>
+      </form>
+      <p class="muted">¿No tienes cuenta? <a routerLink="/registro">Crea una</a>.</p>
+    </section>
+  `,
+  styles: `
+    .narrow {
+      max-width: 480px;
+      margin-inline: auto;
+    }
+    .auth-card {
+      padding: clamp(1.4rem, 4vw, 2rem);
+    }
+    .auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1.25rem;
+      font-family: var(--font-head);
+      font-size: 1.35rem;
+      letter-spacing: -0.04em;
+    }
+    .auth-brand strong {
+      font-weight: 400;
+    }
+    .auth-brand b {
+      font-weight: 700;
+    }
+    .auth-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 11px;
+      background: var(--tinta);
+      color: #eef2f7;
+    }
+    .auth-mark svg {
+      width: 30px;
+      height: 30px;
+    }
+    .open-node {
+      color: var(--ambar-bright);
+    }
+    .auth-card h1 {
+      margin-bottom: 1rem;
+    }
+    .auth-card form {
+      margin: 1rem 0;
+    }
+  `,
+})
+export class LoginPage {
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly a11y = inject(A11yService);
+  protected readonly expired = !!inject(ActivatedRoute).snapshot.queryParamMap.get('expired');
+
+  protected email = '';
+  protected password = '';
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+
+  protected submit(): void {
+    this.error.set('');
+    if (!this.email || !this.password) {
+      this.error.set('Escribe tu correo y contraseña.');
+      return;
+    }
+    this.busy.set(true);
+    this.auth.login(this.email, this.password).subscribe({
+      next: () => {
+        this.a11y.announce('Sesión iniciada');
+        void this.router.navigate(['/']);
+      },
+      error: (e) => {
+        this.busy.set(false);
+        this.error.set(errorMessage(e, 'No se pudo iniciar sesión.'));
+      },
+    });
+  }
+}
+
+@Component({
+  selector: 'app-register',
+  imports: [FormsModule, RouterLink],
+  template: `
+    <section class="card auth-card narrow" aria-labelledby="t">
+      <div class="auth-brand" aria-hidden="true">
+        <span class="auth-mark">
+          <svg viewBox="0 0 64 64">
+            <g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none">
+              <path d="M12 52V12" />
+              <path d="M12 12L46 46" />
+              <path d="M52 44V12" />
+            </g>
+            <circle cx="12" cy="52" r="6.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="6.5" fill="currentColor" />
+            <circle cx="52" cy="12" r="6.5" fill="currentColor" />
+            <circle
+              class="open-node"
+              cx="52"
+              cy="52"
+              r="6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="4"
+            />
+          </svg>
+        </span>
+        <span><strong>Fact</strong><b>Node</b></span>
+      </div>
+      <h1 id="t">Crear cuenta</h1>
+      <p class="muted">Tu cuenta guarda tu historial de análisis y tus API keys.</p>
+      @if (error()) {
+        <p class="alert" role="alert">{{ error() }}</p>
+      }
+      <form (ngSubmit)="submit()" class="stack" novalidate>
+        <div>
+          <label for="name">Nombre</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            autocomplete="name"
+            required
+            [(ngModel)]="name"
+          />
+        </div>
+        <div>
+          <label for="email">Correo electrónico</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+            [(ngModel)]="email"
+          />
+        </div>
+        <div>
+          <label for="password">Contraseña</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            required
+            aria-describedby="pw-hint"
+            [(ngModel)]="password"
+          />
+          <p id="pw-hint" class="hint">Mínimo 8 caracteres, con letras y números.</p>
+        </div>
+        <div>
+          <label for="confirm">Confirmar contraseña</label>
+          <input
+            id="confirm"
+            name="confirm"
+            type="password"
+            autocomplete="new-password"
+            required
+            [(ngModel)]="confirmation"
+          />
+        </div>
+        <button class="btn" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Creando…' : 'Crear cuenta' }}
+        </button>
+      </form>
+      <p class="muted">¿Ya tienes cuenta? <a routerLink="/ingresar">Ingresa</a>.</p>
+    </section>
+  `,
+  styles: `
+    .narrow {
+      max-width: 480px;
+      margin-inline: auto;
+    }
+    .auth-card {
+      padding: clamp(1.4rem, 4vw, 2rem);
+    }
+    .auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1.25rem;
+      font-family: var(--font-head);
+      font-size: 1.35rem;
+      letter-spacing: -0.04em;
+    }
+    .auth-brand strong {
+      font-weight: 400;
+    }
+    .auth-brand b {
+      font-weight: 700;
+    }
+    .auth-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 11px;
+      background: var(--tinta);
+      color: #eef2f7;
+    }
+    .auth-mark svg {
+      width: 30px;
+      height: 30px;
+    }
+    .open-node {
+      color: var(--ambar-bright);
+    }
+    .auth-card h1 {
+      margin-bottom: 1rem;
+    }
+    .auth-card form {
+      margin: 1rem 0;
+    }
+  `,
+})
+export class RegisterPage {
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  protected name = '';
+  protected email = '';
+  protected password = '';
+  protected confirmation = '';
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+
+  protected submit(): void {
+    this.error.set('');
+    if (!this.name || !this.email || !this.password) {
+      this.error.set('Completa todos los campos.');
+      return;
+    }
+    if (this.password !== this.confirmation) {
+      this.error.set('Las contraseñas no coinciden.');
+      return;
+    }
+    this.busy.set(true);
+    this.auth.register(this.name, this.email, this.password, this.confirmation).subscribe({
+      next: () => void this.router.navigate(['/']),
+      error: (e) => {
+        this.busy.set(false);
+        this.error.set(errorMessage(e, 'No se pudo crear la cuenta.'));
+      },
+    });
+  }
+}

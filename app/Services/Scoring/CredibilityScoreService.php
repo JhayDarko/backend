@@ -12,6 +12,7 @@ use App\Models\ClaimVerification;
 use App\Models\Evidence;
 use App\Models\ModelPrediction;
 use App\Services\FactCheck\FactCheckRatingNormalizer;
+use App\Services\Search\SourceDomainPolicy;
 use Illuminate\Support\Collection;
 
 class CredibilityScoreService
@@ -208,7 +209,7 @@ class CredibilityScoreService
             if (! isset($stanceScores[$aiStance])) {
                 $aiStance = 'unverified';
             }
-            $domainPolicy = app(\App\Services\Search\SourceDomainPolicy::class);
+            $domainPolicy = app(SourceDomainPolicy::class);
             $searchEvidence = $claimVerifications
                 ->filter(fn (ClaimVerification $verification): bool => $verification->relation === 'search_evidence' && $verification->status === 'matched')
                 ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
@@ -457,14 +458,18 @@ class CredibilityScoreService
         $label = strtoupper(trim((string) $prediction->prediction_label));
         $prob = (float) ($prediction->probability ?? $prediction->confidence_score ?? 0.5);
 
-        if ($label === 'REAL') {
-            // REAL probability maps to 50.0 - 100.0
-            return 50.0 + ($prob * 50.0);
+        // A classifier near 50% says little: stay neutral instead of rewarding or punishing.
+        if ($prob < 0.6) {
+            return 50.0;
         }
 
+        if ($label === 'REAL') {
+            return min(100.0, 50.0 + (($prob - 0.5) * 100.0));
+        }
+
+        // Style alone (sensational or emotional wording) must not condemn a story: floor at 20.
         if ($label === 'FAKE') {
-            // FAKE probability maps to 50.0 - 0.0
-            return max(0.0, 50.0 - ($prob * 50.0));
+            return max(20.0, 50.0 - (($prob - 0.5) * 100.0));
         }
 
         return 50.0;

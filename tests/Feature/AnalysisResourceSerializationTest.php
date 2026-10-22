@@ -11,6 +11,12 @@ use Tests\TestCase;
 
 class AnalysisResourceSerializationTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsUser();
+    }
+
     public function test_analysis_api_serializes_persisted_verification_and_evidence_fields(): void
     {
         $article = Article::query()->create([

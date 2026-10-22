@@ -13,7 +13,7 @@ class SourceAnalysisServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new SourceAnalysisService();
+        $this->service = new SourceAnalysisService;
     }
 
     public function test_identifies_known_fact_checker_domain(): void
@@ -93,4 +93,3 @@ class SourceAnalysisServiceTest extends TestCase
         $this->assertContains('no_domain_provided', $result->flags);
     }
 }
-

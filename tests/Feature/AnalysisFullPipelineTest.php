@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\AnalyzeArticleJob;
 use App\Models\Analysis;
 use App\Models\Article;
+use App\Models\ModelPrediction;
+use App\Models\Score;
 use App\Models\Source;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
@@ -12,6 +13,12 @@ use Tests\TestCase;
 
 final class AnalysisFullPipelineTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsUser();
+    }
+
     public function test_analysis_pipeline_exposes_claims_with_verifications_and_evidences(): void
     {
         Bus::fake();
@@ -111,7 +118,7 @@ final class AnalysisFullPipelineTest extends TestCase
             'algorithm_version' => '1.0.0',
         ]);
 
-        \App\Models\Score::query()->create([
+        Score::query()->create([
             'analysis_id' => $analysis->id,
             'evidence_score' => 95.0,
             'source_quality_score' => 95.0,
@@ -139,7 +146,7 @@ final class AnalysisFullPipelineTest extends TestCase
             ],
         ]);
 
-        \App\Models\ModelPrediction::query()->create([
+        ModelPrediction::query()->create([
             'analysis_id' => $analysis->id,
             'prediction_label' => 'REAL',
             'confidence_score' => 0.96,
@@ -198,5 +205,3 @@ final class AnalysisFullPipelineTest extends TestCase
         $response->assertJsonPath('data.predictions.0.prediction_label', 'REAL');
     }
 }
-
-

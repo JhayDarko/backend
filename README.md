@@ -77,10 +77,13 @@ buscar manualmente cada dato.
 | Caché de aplicación | Base de datos (`CACHE_STORE=database`) | Suficiente; se usa para el "circuit breaker" de modelos Gemini |
 | IA generativa | **Google Gemini** (primario) y **OpenAI `gpt-4o-mini`** (respaldo en extracción) | Salida estructurada (JSON Schema) y alta disponibilidad con rotación de llaves y modelos |
 | Clasificador | **BERT** `Juanillaberia/spanish-fake-news-classifier` en un microservicio **FastAPI** (Python, Docker) | Modelo específico para español, aislado del backend |
+| OCR y selección de contenido | **PaddleOCR 3.7** local + **Gemini** | PaddleOCR extrae texto; Gemini recibe solo las líneas OCR y separa noticia, texto integrado en la imagen, perfil y otros elementos antes del análisis |
 | Verificación | **Google Fact Check Tools API** | Revisiones editoriales reales con rating |
 | Búsqueda web | **Tavily** (principal) y **Brave** (respaldo) | Resultados con snippets aptos para análisis |
 | Extracción HTML | `symfony/dom-crawler` | Lee JSON-LD, Open Graph, metadatos y párrafos |
-| Frontend | Blade + **Vite 8** + JS/CSS propios | Interfaz ligera con la identidad FactNode (Angular quedó diferido) |
+| Frontend | **Angular 21** (standalone, signals) en `frontend/` | SPA accesible (WCAG 2.2 AA) con la identidad FactNode; se sirve con Angular CLI en desarrollo |
+| Cuentas y API | **Laravel Sanctum** (tokens) + API keys propias | Sesiones de usuario para la app y claves con planes para la API pública |
+| Informes | **dompdf** | PDF y JSON descargables de cada análisis |
 | Pruebas | **PHPUnit 12**, SQLite en memoria | Rápidas y aisladas de servicios externos (`Http::fake`) |
 | CI | GitHub Actions (PHP 8.4) | Ejecuta `php artisan test` en cada push/PR |
 
@@ -92,10 +95,11 @@ buscar manualmente cada dato.
 
 ```mermaid
 flowchart LR
-    U["Usuario (navegador)"] --> W["Frontend Blade + JS"]
+    U["Usuario (navegador)"] --> W["Frontend Angular (ng serve)"]
     W -->|"REST /api/v1"| A["Laravel API"]
     A --> PG[("PostgreSQL")]
     A -->|"encola jobs"| R[("Redis")]
+    A --> OCR["PaddleOCR local (FastAPI)"]
     R --> Q["Workers de cola (varios)"]
     Q --> PG
     Q --> G["Gemini / OpenAI"]
@@ -112,6 +116,7 @@ flowchart TB
     J --> SV["Services (reglas de negocio)"]
     SV --> CT["Contracts / Interfaces"]
     CT --> PR["Providers (Gemini, OpenAI, BERT, Google FC, Tavily, Brave)"]
+    SV --> OCR["Servicio PaddleOCR local (FastAPI)"]
     SV --> M["Modelos Eloquent"]
 ```
 
@@ -389,6 +394,8 @@ con tope de 0.95.
 | **Gemini** (extracción y analista) | JSON Schema estructurado | Hasta **3 llaves** (`GEMINI_API_KEY`, `_2`, `_3`) con rotación en 429; lista de **modelos de respaldo**; **circuit breaker**: un modelo con 503 o sin respuesta (timeout 60 s extracción / 150 s analista) se omite 120 s |
 | **OpenAI** `gpt-4o-mini` | Respaldo de extracción solo ante *rate limit* | Si no tiene crédito → error 402 saneado, sin reintentos |
 | **BERT (FastAPI)** | `POST /classify`, `GET /health` | Texto truncado a 512 tokens; si falla, el puntaje usa lenguaje neutro (50) |
+| **PaddleOCR (FastAPI, CPU)** | `POST /ocr`, `GET /health` | Extrae texto y coordenadas localmente; los modelos se guardan en volumen Docker |
+| **Gemini** | Clasificación previa de capturas | Recibe solo las líneas OCR para separar noticia, texto integrado, perfil e interfaz antes de crear el artículo; usa las llaves y modelos de respaldo configurados |
 | **Google Fact Check** | Revisiones editoriales | Segunda consulta compacta; `no_match` no bloquea una revalidación |
 | **Tavily / Brave** | Pistas web | Tavily primero; si falla, Brave; timeouts cortos (10 s) |
 
@@ -447,6 +454,20 @@ análisis; priorizar fuentes institucionales mejora la calidad.
 
 Base: `http://127.0.0.1:8000/api/v1` · JSON · `Accept: application/json`
 
+**Autenticación:** todas las rutas, salvo registro e inicio de sesión, exigen `Authorization: Bearer <token>`
+(Laravel Sanctum). Cada usuario solo ve sus artículos y análisis (políticas `ArticlePolicy` y
+`AnalysisPolicy`); un artículo puede analizarse una vez por usuario (índice único `article_id + user_id`).
+
+| Método y ruta | Descripción | Límite |
+|---|---|---|
+| `POST /auth/register` | Crea cuenta (contraseña ≥ 8 con letras y números) y devuelve `token` | 10/min |
+| `POST /auth/login` | Inicia sesión y devuelve `token` | 10/min |
+| `GET /auth/me` · `POST /auth/logout` | Usuario actual · revoca el token | — |
+| `POST /articles/ocr` | Sube la captura; PaddleOCR extrae texto y Gemini organiza solo el OCR antes de crear el artículo. El análisis excluye perfil/interfaz y conserva sus textos en metadatos | 10/min |
+| `GET /analyses/{id}/report/pdf` · `/report/json` | Informe descargable (solo análisis completados; `409` si no) | 20–30/min |
+| `GET /sources` · `GET /sources/{id}/profile` | Credibilidad histórica de los medios según los análisis del sistema | 60/min |
+| `GET/POST/DELETE /api-keys` | Gestión de API keys y consumo de 30 días | — |
+
 | Método y ruta | Descripción | Límite |
 |---|---|---|
 | `POST /articles` | Crea artículo (`url` **o** `content`, opcional `title`, `author_name`; también `text/plain`). `201` | 10/min |
@@ -468,6 +489,24 @@ historiales grandes.
 
 Archivo `requests.http` incluye ejemplos listos para usar.
 
+### 10.1 API pública (API keys y planes)
+
+Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación OpenAPI en `/api-docs/openapi.yaml`.
+
+| Ruta | Descripción |
+|---|---|
+| `POST /analyses` | Envía `url` o `content` y arranca el análisis en una llamada (`202`) |
+| `GET /analyses/{id}` · `/status` | Informe completo · estado y progreso |
+| `GET /analyses/{id}/report/json` · `/report/pdf` | Informe descargable |
+| `GET /usage` | Consumo de hoy y límites del plan |
+
+- La clave se muestra **una sola vez**; en base de datos solo se guarda su hash SHA-256 y un prefijo.
+- **Planes** (`config/plans.php`): gratuito 10 req/min y 10 análisis/día; Pro 60 req/min y 300 análisis/día.
+  Se cambia con `php artisan apikeys:plan {id} pro`.
+- Respuestas `429` con `Retry-After`; cabeceras `X-RateLimit-Limit/Remaining`.
+- **Métricas:** tabla `api_usages` (solicitudes, análisis y errores por clave y día), visibles en la app (sección API).
+- Los análisis creados con una clave pertenecen al usuario dueño de la clave.
+
 ---
 
 ## 11. Seguridad
@@ -478,24 +517,34 @@ Archivo `requests.http` incluye ejemplos listos para usar.
 - **Recursos JSON** explícitos: no se exponen modelos completos ni excepciones internas; el
   error público está saneado.
 - **Secretos** solo por variables de entorno; sin llaves en el código.
-- **Sin XSS en el frontend:** el JS escapa el texto (`escapeHtml`) y valida URLs (`safeUrl`).
+- **Autenticación y autorización:** tokens Sanctum; políticas por propietario (403 si el análisis o artículo es de otro
+  usuario); contraseñas con `hashed` (bcrypt); API keys guardadas como hash.
+- **Sin XSS en el frontend:** Angular escapa las plantillas y los enlaces externos se validan (`safeUrl`, solo http/https).
+- **Cabeceras de seguridad:** no se incluye una configuración de servidor HTTP de producción;
+  configurar y verificar headers de seguridad al elegir la plataforma de despliegue.
+- **Subida de imágenes:** validación de tipo real (`image`), tamaño máx. 5 MB y almacenamiento fuera de `public/`.
 - Consultas con Eloquent (parametrizadas), sin SQL manual.
-- Pendiente: autenticación/autorización (ver §18).
+- `composer audit` se ejecuta en el CI.
 
 ---
 
 ## 12. Interfaz web
 
-- Una sola vista (`resources/views/welcome.blade.php`) con `resources/js/factnode.js` y
-  `resources/css/factnode.css`, compilados con Vite.
-- Entrada por **URL o texto**; barra de progreso por pasos que sondea `/status` cada 2.5 s;
-  informe con anillo de puntaje, veredicto, síntesis, cobertura, señales y lista de
-  afirmaciones (con etiqueta de postura, "Afirmación principal" y evidencias enlazadas).
-- Identidad visual del **manual de marca FactNode**: Tinta `#0B1626`, Cobalto `#2547F5`,
-  Niebla `#EEF2F7`, Turquesa `#0E8F86`, Ámbar `#F2A900`, Ladrillo `#B23A2E`; tipografías
-  Space Grotesk e IBM Plex Sans.
-- **Por qué no Angular:** el MVP se resolvió con Blade + JS vanilla para reducir complejidad;
-  la API REST ya permite migrar a un SPA más adelante (épica de baja prioridad).
+- SPA **Angular 21** en `frontend/` (componentes standalone, *signals*, carga perezosa por ruta). Páginas: ingresar /
+  crear cuenta, analizar (URL, texto o **captura de pantalla con OCR**), resultado con progreso por pasos (*polling* a
+  `/status` cada 2.5 s), historial con filtros y paginación, credibilidad de fuentes y gestión de API keys.
+- El resultado muestra puntaje, veredicto, confianza, síntesis, **limitaciones**, señales y cada afirmación con su
+  estado (Respaldado / Contradicho / Parcialmente cierto / No verificado / Información insuficiente), fact-checks y
+  fuentes; permite descargar el **PDF** y el JSON del informe.
+- **Accesibilidad (WCAG 2.2 AA):** enlace «Saltar al contenido», *landmarks* (`header`, `nav`, `main`, `footer`),
+  foco movido al contenido en cada navegación, etiquetas y mensajes de error asociados a cada campo (`aria-describedby`,
+  `role="alert"`), región `aria-live` que anuncia el progreso, estados que no dependen solo del color (icono + texto),
+  foco visible, contraste ≥ 4.5:1, objetivos táctiles ≥ 44 px, `lang="es"`, tablas con `caption` y `scope`, y barra de
+  preferencias: **tamaño de texto, alto contraste y sin animaciones** (también respeta `prefers-reduced-motion`).
+- Identidad visual del **manual de marca FactNode**: Tinta `#0B1626`, Cobalto `#2547F5`, Niebla `#EEF2F7`,
+  Turquesa, Ámbar y Ladrillo (oscurecidos para texto accesible); tipografías Space Grotesk e IBM Plex Sans.
+- El token se guarda en `localStorage` y un interceptor lo añade a cada petición; ante un `401` se cierra la sesión.
+  Trade-off: `localStorage` es vulnerable a XSS, mitigado con CSP y plantillas escapadas.
 
 ---
 
@@ -507,27 +556,33 @@ app/
   DTO/                       Objetos de transferencia (Scoring, Search, Source, Analyst)
   Exceptions/                AiProviderException (códigos 402/429...)
   Http/
-    Controllers/Api/         Article, ArticleAnalysis, Analysis (OcrController es un stub vacío)
-    Requests/                Validación (StoreArticleRequest, ...)
+    Controllers/Api/         Auth, Article, ArticleAnalysis, Analysis, Ocr, Report, Source, ApiKey, PublicAnalysis
+    Requests/                Validación (StoreArticleRequest, StoreOcrRequest, ...)
     Resources/               Contrato JSON
-    Middleware/              UnescapeJsonUnicode
+    Middleware/              UnescapeJsonUnicode, AuthenticateApiKey
+  Actions/                   StartAnalysis (crea/reutiliza el análisis y encola el pipeline)
+  Policies/                  ArticlePolicy, AnalysisPolicy (propiedad por usuario)
   Jobs/                      AnalyzeArticle, ExtractClaims, ClassifyArticle,
                              VerifyClaim, SearchClaimEvidence, FinalizeAnalysis
   Models/                    Article, Source, Analysis, Claim, ClaimVerification,
-                             Evidence, ModelPrediction, Score, User
+    Evidence, ModelPrediction, Score, User, ApiKey, ApiUsage
   Services/
     AI/                      Proveedores Gemini/OpenAI/BERT, analista, GeminiModelCircuit
     Article/                 Ingesta y extracción HTML
     FactCheck/               Google Fact Check + normalizador de ratings
     Search/                  Tavily, Brave, manager, EvidenceSearchService, SourceDomainPolicy
     Scoring/                 CredibilityScoreService
-    Source/                  SourceAnalysisService (reputación del dominio)
+    Source/                  SourceAnalysisService (reputación) y SourceProfileService (historial)
+    OCR/                     ImageOCRService (servicio local PaddleOCR)
+    Report/                  AnalysisReportBuilder (PDF/JSON)
     Verification/            ClaimExtractionService
-config/                      ai, search, scoring, fact_check, queue ...
+config/                      ai, search, scoring, plans, fact_check, queue ...
 ml_service/                  Microservicio FastAPI con BERT (Dockerfile)
-resources/                   Vista Blade, JS y CSS
+ocr_service/                 Microservicio FastAPI con PaddleOCR CPU (Dockerfile)
+frontend/                    SPA Angular (ver §12)
+resources/views/reports/     Plantilla del PDF
 tests/                       Unit y Feature
-docker-compose.yml           PostgreSQL, Redis y ml-service
+docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 ```
 
 ---
@@ -547,6 +602,9 @@ docker-compose.yml           PostgreSQL, Redis y ml-service
 
 | Variable | Descripción |
 |---|---|
+| `OCR_SERVICE_URL` | URL del servicio PaddleOCR (`http://127.0.0.1:8002` local, `http://ocr-service:8000` en Docker) |
+| `OCR_SERVICE_PORT` | Puerto local expuesto por Docker (`8002`) |
+| `OCR_TIMEOUT`, `OCR_CONNECT_TIMEOUT` | Tiempo límite del OCR local (240 s / 10 s por defecto) |
 | `GEMINI_API_KEY`, `_2`, `_3` | Llaves (rotación) |
 | `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS` | Modelo principal y respaldos (CSV) |
 | `GEMINI_EXTRACTION_TIMEOUT` / `GEMINI_ANALYST_TIMEOUT` | 60 s / 150 s |
@@ -582,34 +640,47 @@ Requisitos: PHP 8.4, Composer, Node.js, Docker.
 ```bash
 # 1. Dependencias
 composer install
-npm install
+npm --prefix frontend install --legacy-peer-deps
 
 # 2. Entorno
 cp .env.example .env
 php artisan key:generate          # luego completa tus llaves en .env
 
-# 3. Infraestructura (PostgreSQL, Redis, servicio BERT)
+# 3. Infraestructura (PostgreSQL, Redis, BERT y PaddleOCR)
 docker compose up -d
 
 # 4. Base de datos
 php artisan migrate
 
-# 5. Servidor, workers y Vite (todo junto)
+# 5. API, workers y frontend Angular (todo junto)
 composer dev
 ```
 
-`composer dev` (`php artisan dev`) levanta `php artisan serve`, **3 workers** de cola y
-`vite`. Alternativa manual:
+**Atajo (Windows):** `composer start` ejecuta `scripts/start.ps1`: verifica los requisitos,
+crea `.env` si falta, instala dependencias, levanta Docker esperando a que esté saludable,
+migra y arranca la API, los workers y el frontend Angular.
+
+El repositorio incluye configuración de contenedores para desarrollo local y CI; no incluye
+aprovisionamiento ni despliegue de producción.
+
+`composer dev` (`php artisan dev`) levanta `php artisan serve` (API en `:8000`), **3 workers** de cola y el
+servidor de Angular (`:4200`, con *proxy* hacia la API). Abre **http://localhost:4200**. Alternativa manual:
 
 ```bash
 php artisan serve
 php artisan queue:work redis --sleep=1 --tries=4 --timeout=180 --backoff=10   # repetir en varias terminales
-npm run dev        # o npm run build
+npm --prefix frontend start
 ```
 
-Abre `http://127.0.0.1:8000`. Los cambios en el código requieren reiniciar los workers.
+Los cambios en el código PHP requieren reiniciar los workers.
 
 > Seguridad: usa tus propias llaves en `.env`; **no** subas llaves reales a `.env.example`.
+
+Al analizar una captura, PaddleOCR extrae el texto y el backend envía a Gemini únicamente las líneas
+reconocidas, sin la imagen ni sus coordenadas, para clasificar automáticamente el texto de la noticia,
+el texto integrado en la imagen, el perfil que comparte y otros elementos de interfaz. Solo el texto
+de la noticia y el texto integrado en la imagen forman el artículo que se analiza. La selección depende
+del modelo y puede equivocarse.
 
 ---
 
@@ -619,14 +690,15 @@ Abre `http://127.0.0.1:8000`. Los cambios en el código requieren reiniciar los 
 php artisan test
 ```
 
-- ~123 pruebas (SQLite en memoria, `RefreshDatabase`); proveedores externos simulados con
+- ~150 pruebas de backend (SQLite en memoria, `RefreshDatabase`); proveedores externos simulados con
   `Http::fake` e interfaces falsas. Una prueba de integración real con Gemini es opcional y se
-  omite sin llave.
-- Cubren: contratos de la API, jobs, extracción y normalización de claims, proveedores
-  (Gemini, OpenAI, BERT, Google Fact Check, Tavily/Brave), fallbacks, circuit breaker,
+  omite sin llave. Frontend: `npm --prefix frontend test` (Vitest).
+- Cubren: contratos de la API, **autenticación y propiedad por usuario**, **OCR**, **informes PDF/JSON**,
+  **API pública (claves, planes, cuotas)**, perfil de fuentes, jobs, extracción y normalización de claims,
+  proveedores (Gemini, OpenAI, BERT, Google Fact Check, Tavily/Brave), fallbacks, circuit breaker,
   política de dominios, puntaje (ponderación, abstención, centralidad) y pipeline completo.
-- **CI** (`.github/workflows/ci.yml`): PHP 8.4, instala dependencias y ejecuta la suite en cada
-  push/PR a `main`, `master` o `develop`.
+- **CI** (`.github/workflows/ci.yml`) en cada push/PR: estilo (Pint), migraciones sobre **PostgreSQL**, suite de
+  tests, `composer audit`, build y tests de Angular.
 
 ---
 
@@ -649,8 +721,12 @@ php artisan test
 | **Rotación de llaves, modelos y proveedores** | Los límites de cuota y la saturación (503/429) fueron un problema real | Una sola llave y modelo |
 | **Circuit breaker de modelos** | Evitar esperar 60 s en cada análisis a un modelo caído | Reintentar siempre 3 veces |
 | **Microservicio Python para BERT** | Aísla dependencias pesadas (PyTorch) del backend PHP | Ejecutar el modelo en PHP |
-| **Blade + Vite en lugar de Angular** | Entrega más rápida del MVP | SPA completa (diferida) |
-| **Un análisis por artículo** | Evita duplicados/costos; reintento explícito | Un análisis nuevo por solicitud |
+| **Angular en lugar de Blade** | SPA tipada, componentes reutilizables y accesibles; API y frontend desacoplados | Blade + JS (menos mantenible al crecer) |
+| **Sanctum con tokens** | Simple para SPA y móvil; sin CSRF ni cookies entre orígenes | Sesiones con cookies; OAuth completo |
+| **API keys propias con hash y planes** | Claves revocables, métricas por clave y límites por plan | Reutilizar los tokens de usuario para la API pública |
+| **OCR local + selección Gemini por texto** | PaddleOCR extrae el texto; Gemini organiza las líneas OCR sin recibir la imagen | Clasificación solo por geometría OCR sin contexto lingüístico |
+| **PDF con dompdf** | PHP puro, sin binarios externos en el contenedor | wkhtmltopdf/Chromium (imágenes pesadas) |
+| **Un análisis por artículo y usuario** | Aislamiento por cuenta sin repetir análisis propios | Análisis global compartido (fuga de datos entre usuarios) |
 
 ---
 
@@ -667,24 +743,29 @@ php artisan test
 - **Confianza heurística:** no es una probabilidad calibrada.
 - **SSRF parcial:** se validan host e IP literales, pero no se resuelve el DNS antes de
   descargar (posible *DNS rebinding*).
-- **Sin autenticación:** `user_id` es nullable; cualquier cliente puede analizar (se limita
-  con *rate limit*).
+- **Cuentas básicas:** no hay verificación de correo ni recuperación de contraseña; el plan Pro se asigna a mano
+  (`php artisan apikeys:plan`), sin pasarela de pago.
 - **Extracción HTML:** sitios con paywall o contenido renderizado por JavaScript pueden fallar;
   el texto pegado es el camino más fiable.
-- **OCR:** `OcrController` existe como esqueleto vacío y no hay ruta expuesta.
-- **Un análisis por artículo:** reanalizar un artículo ya completado requiere lógica adicional
+- **OCR:** lee y transcribe el texto, pero no detecta titulares manipulados ni modificaciones visuales (EP19-HU5/7).
+  Es síncrono (puede tardar varios segundos) y consume cuota de Gemini.
+- **Reanalizar:** reanalizar un artículo ya completado requiere lógica adicional
   (la extracción se omite si ya existe puntaje).
 - **Progreso por etapas:** es una aproximación, no un porcentaje exacto.
+- **Despliegue:** este repositorio no configura un entorno productivo; la plataforma y su
+  operación deben definirse antes de publicar el servicio.
+- **No implementado** (Product Backlog): EP21 análisis comparativo, EP22 redes sociales, EP25 multilenguaje y
+  correcciones publicadas por medio (EP20-HU4).
 
 **Trabajo futuro**
 
 1. Construir un corpus etiquetado y medir precisión/recall/F1 y calibración; recalibrar pesos
    solo con *validation* y evaluar en *test*.
-2. Autenticación y propiedad de análisis (épica EP18).
-3. Frontend Angular (EP17, baja prioridad) y OCR de imágenes.
-4. Mejorar `language_score` y su validación (HU4) y validar el Docker del ML (HU3).
+2. Verificación de correo, recuperación de contraseña y cobro del plan Pro.
+3. OCR asíncrono y detección de imágenes manipuladas.
+4. Comparar el clasificador de lenguaje con otros modelos NLP (EP15-HU4).
 5. Supervisor/Horizon-equivalente para workers en producción y métricas de tiempos.
-6. Resolver DNS antes de descargar URLs y listas de dominios gestionables sin redeploy.
+6. Resolver DNS antes de descargar URLs y permitir actualizar listas de dominios sin cambiar código.
 
 ---
 

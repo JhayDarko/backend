@@ -5,11 +5,11 @@ namespace App\DTO\Analyst;
 final class AnalystSynthesisResult
 {
     /**
-     * @param array<int, AnalystClaimEvaluation> $claimEvaluations
-     * @param array<int, string> $fallaciesAndRedFlags
-     * @param array<int, string> $biasIndicators
-     * @param array<int, string> $keyFindings
-     * @param array<string, mixed> $rawResponse
+     * @param  array<int, AnalystClaimEvaluation>  $claimEvaluations
+     * @param  array<int, string>  $fallaciesAndRedFlags
+     * @param  array<int, string>  $biasIndicators
+     * @param  array<int, string>  $keyFindings
+     * @param  array<string, mixed>  $rawResponse
      */
     public function __construct(
         public string $summary,
@@ -39,4 +39,3 @@ final class AnalystSynthesisResult
         ];
     }
 }
-

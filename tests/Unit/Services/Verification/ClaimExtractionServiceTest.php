@@ -15,7 +15,8 @@ class ClaimExtractionServiceTest extends TestCase
 {
     public function test_it_extracts_and_normalizes_claims_from_article(): void
     {
-        $provider = new class implements AiProviderInterface {
+        $provider = new class implements AiProviderInterface
+        {
             public function extractClaims(string $title, string $content, ?string $description = null): ExtractedClaimsResponse
             {
                 return ExtractedClaimsResponse::from([
@@ -73,7 +74,7 @@ class ClaimExtractionServiceTest extends TestCase
             'content' => 'El aumento de temperatura es real. La temperatura subió en 2024.',
         ]);
 
-        $service = new ClaimExtractionService();
+        $service = new ClaimExtractionService;
         $result = $service->extract($article);
 
         $this->assertInstanceOf(ClaimExtractionResult::class, $result);
@@ -91,7 +92,8 @@ class ClaimExtractionServiceTest extends TestCase
 
     public function test_it_rejects_model_verdict_and_extraneous_verification_fields(): void
     {
-        $provider = new class implements AiProviderInterface {
+        $provider = new class implements AiProviderInterface
+        {
             public function extractClaims(string $title, string $content, ?string $description = null): ExtractedClaimsResponse
             {
                 return ExtractedClaimsResponse::from([
@@ -133,14 +135,17 @@ class ClaimExtractionServiceTest extends TestCase
 
         $this->expectException(AiProviderException::class);
 
-        (new ClaimExtractionService())->extract($article);
+        (new ClaimExtractionService)->extract($article);
     }
 
     public function test_it_builds_prompt_version_and_uses_article_fields(): void
     {
-        $provider = new class implements AiProviderInterface {
+        $provider = new class implements AiProviderInterface
+        {
             public string $lastTitle;
+
             public string $lastContent;
+
             public ?string $lastDescription;
 
             public function extractClaims(string $title, string $content, ?string $description = null): ExtractedClaimsResponse
@@ -187,7 +192,7 @@ class ClaimExtractionServiceTest extends TestCase
             'content' => 'Contenido del artículo',
         ]);
 
-        $result = (new ClaimExtractionService())->extract($article);
+        $result = (new ClaimExtractionService)->extract($article);
 
         $this->assertSame('Título', $provider->lastTitle);
         $this->assertSame('Contenido del artículo', $provider->lastContent);

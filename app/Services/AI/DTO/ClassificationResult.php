@@ -5,7 +5,7 @@ namespace App\Services\AI\DTO;
 final class ClassificationResult
 {
     /**
-     * @param array<string, mixed> $rawData
+     * @param  array<string, mixed>  $rawData
      */
     public function __construct(
         public readonly string $label,
@@ -16,7 +16,7 @@ final class ClassificationResult
     ) {}
 
     /**
-     * @param array{label?: string, confidence?: float|int|string, probability?: float|int|string, model?: string, rawData?: array<string, mixed>} $data
+     * @param  array{label?: string, confidence?: float|int|string, probability?: float|int|string, model?: string, rawData?: array<string, mixed>}  $data
      */
     public static function from(array $data): self
     {

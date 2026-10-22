@@ -19,6 +19,7 @@ class AnalysisListAndRetryApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->actingAsUser();
 
         $source = Source::create([
             'name' => 'El Confidencial',
@@ -169,4 +170,3 @@ class AnalysisListAndRetryApiTest extends TestCase
         Queue::assertNotPushed(AnalyzeArticleJob::class);
     }
 }
-

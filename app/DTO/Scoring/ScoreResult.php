@@ -5,7 +5,7 @@ namespace App\DTO\Scoring;
 final class ScoreResult
 {
     /**
-     * @param array<string, mixed> $breakdown
+     * @param  array<string, mixed>  $breakdown
      */
     public function __construct(
         public float $evidenceScore,
@@ -43,4 +43,3 @@ final class ScoreResult
         ];
     }
 }
-

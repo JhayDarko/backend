@@ -3,10 +3,10 @@
 namespace App\Services\Search;
 
 use App\Contracts\Search\SearchProviderInterface;
+use App\DTO\Search\SearchResult;
 use App\Models\Claim;
 use App\Models\ClaimVerification;
 use App\Models\Evidence;
-use Illuminate\Support\Str;
 
 final class EvidenceSearchService
 {
@@ -37,7 +37,7 @@ final class EvidenceSearchService
         $normalized = [];
 
         foreach ($results as $result) {
-            if ($result instanceof \App\DTO\Search\SearchResult) {
+            if ($result instanceof SearchResult) {
                 $url = trim($result->url);
                 if ($url === '') {
                     continue;
@@ -56,6 +56,7 @@ final class EvidenceSearchService
                     'relevance' => $result->relevance,
                     'metadata' => $result->metadata,
                 ];
+
                 continue;
             }
 
@@ -204,7 +205,7 @@ final class EvidenceSearchService
     }
 
     /**
-     * @param  array<int, array<string, mixed>> $results
+     * @param  array<int, array<string, mixed>>  $results
      * @return array<int, array<string, mixed>>
      */
     private function deduplicateResults(array $results): array

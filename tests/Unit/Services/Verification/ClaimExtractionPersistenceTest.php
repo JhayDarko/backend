@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services\Verification;
 
 use App\Contracts\AiProviderInterface;
+use App\Exceptions\AiProviderException;
 use App\Models\Analysis;
 use App\Models\Article;
 use App\Models\Source;
@@ -20,7 +21,8 @@ class ClaimExtractionPersistenceTest extends TestCase
     {
         parent::setUp();
 
-        $provider = new class implements AiProviderInterface {
+        $provider = new class implements AiProviderInterface
+        {
             public function extractClaims(string $title, string $content, ?string $description = null): ExtractedClaimsResponse
             {
                 return ExtractedClaimsResponse::from([
@@ -98,7 +100,7 @@ class ClaimExtractionPersistenceTest extends TestCase
             'algorithm_version' => '1.0.0',
         ]);
 
-        $service = new ClaimExtractionService();
+        $service = new ClaimExtractionService;
         $result = $service->extractAndPersist($article, $analysis);
 
         $this->assertInstanceOf(ClaimExtractionResult::class, $result);
@@ -110,7 +112,7 @@ class ClaimExtractionPersistenceTest extends TestCase
         $this->assertSame(0.9, (float) $claim->importance);
         $this->assertTrue((bool) $claim->verifiable);
         $this->assertNotNull($claim->fingerprint);
-        $this->assertSame($claim->fingerprint, hash('sha256', strtolower($claim->text) . '|statistical|' . strtolower($claim->context)));
+        $this->assertSame($claim->fingerprint, hash('sha256', strtolower($claim->text).'|statistical|'.strtolower($claim->context)));
     }
 
     public function test_it_is_idempotent_when_repeated(): void
@@ -146,7 +148,7 @@ class ClaimExtractionPersistenceTest extends TestCase
             'algorithm_version' => '1.0.0',
         ]);
 
-        $service = new ClaimExtractionService();
+        $service = new ClaimExtractionService;
         $service->extractAndPersist($article, $analysis);
         $service->extractAndPersist($article, $analysis);
 
@@ -183,7 +185,7 @@ class ClaimExtractionPersistenceTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $service = new ClaimExtractionService();
+        $service = new ClaimExtractionService;
 
         $result = new ClaimExtractionResult(
             summary: 'Resumen',
@@ -206,7 +208,7 @@ class ClaimExtractionPersistenceTest extends TestCase
             promptVersion: '1.0.0',
         );
 
-        $this->expectException(\App\Exceptions\AiProviderException::class);
+        $this->expectException(AiProviderException::class);
 
         $service->persistClaims($analysis, $result);
     }

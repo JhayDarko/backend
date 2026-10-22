@@ -13,11 +13,11 @@ final class ArticleIngestionService
         private readonly DomainNormalizer $domainNormalizer,
     ) {}
 
-    public function ingest(string $url): Article
+    public function ingest(string $url, ?int $userId = null): Article
     {
         $data = $this->extractor->extract($url);
 
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $userId) {
             $domain = $this->domainNormalizer->normalize($data->url);
 
             $source = Source::firstOrCreate(
@@ -26,7 +26,7 @@ final class ArticleIngestionService
                 ],
                 [
                     'name' => $domain,
-                    'url' => 'https://' . $domain,
+                    'url' => 'https://'.$domain,
                 ]
             );
 
@@ -57,6 +57,7 @@ final class ArticleIngestionService
 
             return Article::create([
                 'source_id' => $source->id,
+                'created_by' => $userId,
                 'url' => $data->url,
                 'canonical_url' => $data->canonicalUrl,
                 'title' => $data->title,
@@ -71,7 +72,7 @@ final class ArticleIngestionService
         });
     }
 
-    public function ingestText(string $content, ?string $title = null, ?string $authorName = null): Article
+    public function ingestText(string $content, ?string $title = null, ?string $authorName = null, ?int $userId = null, array $metadata = []): Article
     {
         $content = trim($content);
         $contentHash = hash('sha256', $content);
@@ -84,10 +85,11 @@ final class ArticleIngestionService
             return $existingArticle;
         }
 
-        $derivedTitle = $title ? trim($title) : mb_substr($content, 0, 80) . (mb_strlen($content) > 80 ? '...' : '');
+        $derivedTitle = $title ? trim($title) : mb_substr($content, 0, 80).(mb_strlen($content) > 80 ? '...' : '');
 
         return Article::create([
             'source_id' => null,
+            'created_by' => $userId,
             'url' => null,
             'canonical_url' => null,
             'title' => $derivedTitle,
@@ -97,9 +99,7 @@ final class ArticleIngestionService
             'published_at' => now(),
             'language' => 'es',
             'content_hash' => $contentHash,
-            'metadata' => [
-                'submission_type' => 'raw_text',
-            ],
+            'metadata' => $metadata + ['submission_type' => 'raw_text'],
         ]);
     }
 }

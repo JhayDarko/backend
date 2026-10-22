@@ -25,4 +25,3 @@ final class ModelPredictionResource extends JsonResource
         ];
     }
 }
-

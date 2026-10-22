@@ -1,15 +1,10 @@
 <?php
 
-use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
-use App\Jobs\TestRedisJob;
 
-Route::get('/queue-test', function () {
-    TestRedisJob::dispatch();
-
-    return 'Job enviado a la cola';
-});
-
-Route::get('/', function () {
-    return view('welcome');
-});
+// The Angular SPA runs separately in development; this host exposes the API.
+Route::get('/', fn () => response()->json([
+    'name' => 'FactNode API',
+    'docs' => url('/api-docs/openapi.yaml'),
+    'health' => url('/up'),
+]));

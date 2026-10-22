@@ -78,6 +78,7 @@ return [
         // Per-request timeouts (seconds); AI_PROVIDER_TIMEOUT is too long to detect a stalled model.
         'extraction_timeout' => (int) env('GEMINI_EXTRACTION_TIMEOUT', 60),
         'analyst_timeout' => (int) env('GEMINI_ANALYST_TIMEOUT', 150),
+        'ocr_timeout' => (int) env('GEMINI_OCR_TIMEOUT', 60),
         // Seconds an overloaded model (503/timeout) is skipped by later requests.
         'unavailable_cooldown' => (int) env('GEMINI_UNAVAILABLE_COOLDOWN', 120),
         // Optional (minimal|low|medium|high): lower reasoning effort makes extraction noticeably faster.
@@ -86,6 +87,12 @@ return [
 
     'extraction' => [
         'max_claims' => (int) env('CLAIM_EXTRACTION_MAX_CLAIMS', 10),
+    ],
+
+    'ocr' => [
+        'base_url' => env('OCR_SERVICE_URL', 'http://127.0.0.1:8002'),
+        'timeout' => (int) env('OCR_TIMEOUT', 240),
+        'connect_timeout' => (int) env('OCR_CONNECT_TIMEOUT', 10),
     ],
 
     /*

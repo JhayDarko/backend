@@ -32,6 +32,7 @@ class AiProviderExceptionTest extends TestCase
 
         $this->assertStringContainsString('500', $exception->getMessage());
         $this->assertStringContainsString('Internal Server Error', $exception->getMessage());
+        $this->assertSame(500, $exception->getCode());
     }
 
     #[Test]

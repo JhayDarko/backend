@@ -24,7 +24,7 @@ class GeminiStructuredOutputOptionalIntegrationTest extends TestCase
         $description = 'Noticia artificial de prueba para validación del esquema estructurado.';
 
         $startedAt = microtime(true);
-        $provider = new GeminiProvider();
+        $provider = new GeminiProvider;
         $response = $provider->extractClaims($title, $content, $description);
         $duration = round(microtime(true) - $startedAt, 3);
 
@@ -49,6 +49,6 @@ class GeminiStructuredOutputOptionalIntegrationTest extends TestCase
             'model' => $model,
         ];
 
-        fwrite(STDOUT, json_encode($safeMetrics, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL);
+        fwrite(STDOUT, json_encode($safeMetrics, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR).PHP_EOL);
     }
 }

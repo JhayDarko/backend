@@ -6,11 +6,7 @@ use App\DTO\Source\SourceAnalysisResult;
 use App\Exceptions\AiProviderException;
 use App\Models\Article;
 use App\Models\Claim;
-use App\Models\ClaimVerification;
-use App\Models\Evidence;
-use App\Models\ModelPrediction;
 use App\Services\AI\Providers\GeminiAnalystProvider;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -24,7 +20,7 @@ class GeminiAnalystProviderTest extends TestCase
         parent::setUp();
         Config::set('ai.gemini.api_key', 'test-api-key');
         Config::set('ai.gemini.model', 'gemini-2.0-flash');
-        $this->provider = new GeminiAnalystProvider();
+        $this->provider = new GeminiAnalystProvider;
     }
 
     public function test_synthesize_parses_valid_gemini_response_correctly(): void
@@ -167,4 +163,3 @@ class GeminiAnalystProviderTest extends TestCase
         );
     }
 }
-

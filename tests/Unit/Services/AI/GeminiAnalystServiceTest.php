@@ -3,7 +3,6 @@
 namespace Tests\Unit\Services\AI;
 
 use App\Contracts\Analyst\AnalystProviderInterface;
-use App\DTO\Analyst\AnalystClaimEvaluation;
 use App\DTO\Analyst\AnalystSynthesisResult;
 use App\DTO\Source\SourceAnalysisResult;
 use App\Models\Analysis;
@@ -11,7 +10,6 @@ use App\Models\Article;
 use App\Models\Claim;
 use App\Models\ClaimVerification;
 use App\Models\Evidence;
-use App\Models\ModelPrediction;
 use App\Models\Source;
 use App\Services\AI\GeminiAnalystService;
 use App\Services\Source\SourceAnalysisService;
@@ -24,7 +22,8 @@ class GeminiAnalystServiceTest extends TestCase
 
     public function test_service_orchestrates_data_and_calls_provider(): void
     {
-        $mockProvider = new class implements AnalystProviderInterface {
+        $mockProvider = new class implements AnalystProviderInterface
+        {
             public bool $called = false;
 
             public function synthesize(
@@ -56,7 +55,7 @@ class GeminiAnalystServiceTest extends TestCase
             }
         };
 
-        $sourceService = new SourceAnalysisService();
+        $sourceService = new SourceAnalysisService;
         $service = new GeminiAnalystService($mockProvider, $sourceService);
 
         $source = Source::query()->create([
@@ -111,4 +110,3 @@ class GeminiAnalystServiceTest extends TestCase
         $this->assertSame('credible', $result->suggestedVerdict);
     }
 }
-

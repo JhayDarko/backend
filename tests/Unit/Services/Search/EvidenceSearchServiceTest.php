@@ -2,13 +2,13 @@
 
 namespace Tests\Unit\Services\Search;
 
+use App\Contracts\Search\SearchProviderInterface;
 use App\Jobs\SearchClaimEvidenceJob;
 use App\Models\Analysis;
 use App\Models\Article;
 use App\Models\Claim;
 use App\Models\Source;
 use App\Services\Search\EvidenceSearchService;
-use App\Services\Search\SearchProviderManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -59,7 +59,8 @@ class EvidenceSearchServiceTest extends TestCase
             'metadata' => [],
         ]);
 
-        $manager = new class implements \App\Contracts\Search\SearchProviderInterface {
+        $manager = new class implements SearchProviderInterface
+        {
             public function search(string $query, array $options = []): array
             {
                 return [
@@ -94,7 +95,8 @@ class EvidenceSearchServiceTest extends TestCase
     {
         $claim = new Claim(['text' => 'La NASA modificó la órbita de Dimorphos', 'verifiable' => true]);
 
-        $provider = new class implements \App\Contracts\Search\SearchProviderInterface {
+        $provider = new class implements SearchProviderInterface
+        {
             public array $options = [];
 
             public function search(string $query, array $options = []): array

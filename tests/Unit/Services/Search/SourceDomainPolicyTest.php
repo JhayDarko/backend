@@ -15,7 +15,7 @@ class SourceDomainPolicyTest extends TestCase
         parent::setUp();
 
         config(['search.trusted_only' => false]);
-        $this->policy = new SourceDomainPolicy(new SourceAnalysisService());
+        $this->policy = new SourceDomainPolicy(new SourceAnalysisService);
     }
 
     public function test_it_blocks_social_networks_and_their_subdomains(): void

@@ -2,6 +2,7 @@
 
 namespace App\Contracts;
 
+use App\Exceptions\AiProviderException;
 use App\Services\AI\DTO\ExtractedClaimsResponse;
 
 interface AiProviderInterface
@@ -9,13 +10,12 @@ interface AiProviderInterface
     /**
      * Extract claims from article content using AI provider.
      *
-     * @param string $title Article title
-     * @param string $content Article content
-     * @param string|null $description Article description
-     *
+     * @param  string  $title  Article title
+     * @param  string  $content  Article content
+     * @param  string|null  $description  Article description
      * @return ExtractedClaimsResponse Structured response with extracted claims
      *
-     * @throws \App\Exceptions\AiProviderException
+     * @throws AiProviderException
      */
     public function extractClaims(
         string $title,

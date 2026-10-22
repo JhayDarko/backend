@@ -57,7 +57,8 @@ class FactCheckServiceTest extends TestCase
             'metadata' => [],
         ]);
 
-        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface {
+        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface
+        {
             public function search(string $query): array
             {
                 return [[
@@ -133,7 +134,8 @@ class FactCheckServiceTest extends TestCase
             'metadata' => [],
         ]);
 
-        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface {
+        $this->app->instance(FactCheckProviderInterface::class, new class implements FactCheckProviderInterface
+        {
             public function search(string $query): array
             {
                 return [];
@@ -172,7 +174,8 @@ class FactCheckServiceTest extends TestCase
             'fingerprint' => 'fact-check-query-fallback',
         ]);
 
-        $provider = new class implements FactCheckProviderInterface {
+        $provider = new class implements FactCheckProviderInterface
+        {
             public array $queries = [];
 
             public function search(string $query): array

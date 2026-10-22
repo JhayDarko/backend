@@ -142,12 +142,12 @@ class SourceAnalysisService
     }
 
     /**
-     * @param array<int, string> $domainList
+     * @param  array<int, string>  $domainList
      */
     protected function matchesDomainList(string $domain, array $domainList): bool
     {
         foreach ($domainList as $known) {
-            if ($domain === $known || str_ends_with($domain, '.' . $known)) {
+            if ($domain === $known || str_ends_with($domain, '.'.$known)) {
                 return true;
             }
         }
@@ -156,12 +156,12 @@ class SourceAnalysisService
     }
 
     /**
-     * @param array<int, string> $domainList
+     * @param  array<int, string>  $domainList
      */
     protected function getMatchingDomainKey(string $domain, array $domainList): string
     {
         foreach ($domainList as $known) {
-            if ($domain === $known || str_ends_with($domain, '.' . $known)) {
+            if ($domain === $known || str_ends_with($domain, '.'.$known)) {
                 return $known;
             }
         }
@@ -178,4 +178,3 @@ class SourceAnalysisService
             || str_ends_with($domain, '.mil');
     }
 }
-

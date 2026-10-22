@@ -8,8 +8,6 @@ interface ClassifierProviderInterface
 {
     /**
      * Classify article content using a text classification model.
-     *
-     * @return ClassificationResult
      */
     public function classify(
         string $title,

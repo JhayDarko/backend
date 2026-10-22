@@ -12,10 +12,14 @@ use App\Models\Claim;
 use App\Models\ClaimVerification;
 use App\Models\Evidence;
 use App\Models\ModelPrediction;
+use App\Services\AI\GeminiModelCircuit;
+use App\Services\Search\SourceDomainPolicy;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 final class GeminiAnalystProvider implements AnalystProviderInterface
 {
@@ -69,19 +73,19 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         }
 
         Log::info('Starting qualitative synthesis via Gemini Analyst', [
-            'provider'             => $this->getName(),
-            'model'                => $this->model,
-            'article_id'           => $article->id,
-            'claims_count'         => $claims->count(),
-            'verifications_count'  => $verifications->count(),
-            'evidences_count'      => $evidences->count(),
+            'provider' => $this->getName(),
+            'model' => $this->model,
+            'article_id' => $article->id,
+            'claims_count' => $claims->count(),
+            'verifications_count' => $verifications->count(),
+            'evidences_count' => $evidences->count(),
         ]);
 
         $modelsToTry = array_unique(array_merge([$this->model], self::FALLBACK_MODELS));
 
         $lastRateLimit = null;
         foreach ($this->apiKeys as $keyIndex => $apiKey) {
-            foreach (\App\Services\AI\GeminiModelCircuit::available(array_values($modelsToTry)) as $attemptModel) {
+            foreach (GeminiModelCircuit::available(array_values($modelsToTry)) as $attemptModel) {
                 try {
                     $result = $this->trySynthesizeWithModel(
                         $attemptModel, $apiKey, $article, $claims, $verifications, $evidences, $prediction, $sourceAnalysis
@@ -137,9 +141,9 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
                     ['role' => 'user', 'parts' => [['text' => $prompt]]],
                 ],
                 'generationConfig' => [
-                    'temperature'      => $this->temperature,
+                    'temperature' => $this->temperature,
                     'responseMimeType' => 'application/json',
-                    'responseSchema'   => $jsonSchema,
+                    'responseSchema' => $jsonSchema,
                 ],
             ];
 
@@ -153,15 +157,16 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
                         ->connectTimeout(10)
                         ->withHeader('Content-Type', 'application/json')
                         ->post($url, $payload);
-                } catch (\Illuminate\Http\Client\ConnectionException $exception) {
+                } catch (ConnectionException $exception) {
                     Log::warning('Gemini analyst request failed or timed out, trying fallback model', ['model' => $model]);
-                    \App\Services\AI\GeminiModelCircuit::trip($model);
+                    GeminiModelCircuit::trip($model);
 
                     return null;
                 }
 
                 if ($response->status() === 404) {
                     Log::warning('Gemini analyst model not available, trying fallback', ['model' => $model]);
+
                     return null;
                 }
 
@@ -169,18 +174,20 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
                 if ($response->status() === 0) {
                     Log::warning("Gemini analyst connection failure on {$model}, retrying", [
                         'attempt' => $attempt,
-                        'model'   => $model,
+                        'model' => $model,
                     ]);
                     if ($attempt < $maxRetries) {
                         sleep(min(3 ** $attempt, 30));
+
                         continue;
                     }
+
                     return null;
                 }
 
                 if ($response->status() === 503) {
                     Log::warning("Gemini analyst 503 on {$model}, trying fallback model", ['model' => $model]);
-                    \App\Services\AI\GeminiModelCircuit::trip($model);
+                    GeminiModelCircuit::trip($model);
 
                     return null;
                 }
@@ -192,15 +199,15 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         } catch (AiProviderException $e) {
             Log::error('Gemini Analyst synthesis failed', [
                 'provider' => $this->getName(),
-                'model'    => $model,
-                'error'    => $e->getMessage(),
+                'model' => $model,
+                'error' => $e->getMessage(),
             ]);
             throw $e;
         } catch (\Throwable $e) {
             Log::error('Unexpected error during Gemini Analyst synthesis', [
                 'provider' => $this->getName(),
-                'model'    => $model,
-                'error'    => $e->getMessage(),
+                'model' => $model,
+                'error' => $e->getMessage(),
             ]);
             throw AiProviderException::connection("Gemini synthesis error: {$e->getMessage()}", 0, $e);
         }
@@ -217,9 +224,9 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
     }
 
     /**
-     * @param Collection<int, Claim> $claims
-     * @param Collection<int, ClaimVerification> $verifications
-     * @param Collection<int, Evidence> $evidences
+     * @param  Collection<int, Claim>  $claims
+     * @param  Collection<int, ClaimVerification>  $verifications
+     * @param  Collection<int, Evidence>  $evidences
      */
     private function buildPrompt(
         Article $article,
@@ -230,7 +237,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
         SourceAnalysisResult $sourceAnalysis,
     ): string {
         $claimsData = $claims->map(function (Claim $claim) use ($verifications): array {
-            $domainPolicy = app(\App\Services\Search\SourceDomainPolicy::class);
+            $domainPolicy = app(SourceDomainPolicy::class);
             $claimVerifications = $verifications->where('claim_id', $claim->id);
             $claimEvidence = $claimVerifications
                 ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
@@ -241,7 +248,7 @@ final class GeminiAnalystProvider implements AnalystProviderInterface
                 ->map(fn (Evidence $evidence): array => [
                     'title' => $evidence->title,
                     'url' => $evidence->url,
-                    'snippet' => \Illuminate\Support\Str::limit((string) $evidence->snippet, 400),
+                    'snippet' => Str::limit((string) $evidence->snippet, 400),
                     'domain' => $evidence->metadata['domain'] ?? parse_url((string) $evidence->url, PHP_URL_HOST),
                     'provider' => $evidence->metadata['provider'] ?? null,
                     'trusted_source' => $domainPolicy->isTrusted((string) $evidence->url),
@@ -411,7 +418,7 @@ PROMPT;
 
         $decoded = json_decode($rawText, true);
         if (! is_array($decoded)) {
-            throw AiProviderException::responseValidation('Failed to parse Gemini response as JSON: ' . json_last_error_msg());
+            throw AiProviderException::responseValidation('Failed to parse Gemini response as JSON: '.json_last_error_msg());
         }
 
         $claimEvaluations = [];

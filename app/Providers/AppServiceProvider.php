@@ -10,7 +10,6 @@ use App\Contracts\Search\SearchProviderInterface;
 use App\Services\AI\Providers\BertFakeNewsProvider;
 use App\Services\AI\Providers\FallbackAiProvider;
 use App\Services\AI\Providers\GeminiAnalystProvider;
-use App\Services\AI\Providers\GeminiProvider;
 use App\Services\FactCheck\GoogleFactCheckProvider;
 use App\Services\Search\SearchProviderManager;
 use Illuminate\Foundation\DevCommands;
@@ -41,5 +40,6 @@ class AppServiceProvider extends ServiceProvider
         for ($worker = 2; $worker <= max(1, (int) config('queue.dev_workers', 3)); $worker++) {
             DevCommands::artisan('queue:work --sleep=1 --tries=4 --backoff=10 --timeout=0', "queue-{$worker}");
         }
+        DevCommands::register('npm --prefix frontend start', 'web');
     }
 }

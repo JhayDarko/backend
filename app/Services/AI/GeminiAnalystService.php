@@ -4,9 +4,8 @@ namespace App\Services\AI;
 
 use App\Contracts\Analyst\AnalystProviderInterface;
 use App\DTO\Analyst\AnalystSynthesisResult;
-use App\DTO\Source\SourceAnalysisResult;
 use App\Models\Analysis;
-use App\Models\Article;
+use App\Models\ClaimVerification;
 use App\Services\Source\SourceAnalysisService;
 
 class GeminiAnalystService
@@ -29,13 +28,13 @@ class GeminiAnalystService
         $claims = $analysis->claims()->get();
         $claimIds = $claims->pluck('id')->all();
 
-        $verifications = \App\Models\ClaimVerification::query()
+        $verifications = ClaimVerification::query()
             ->whereIn('claim_id', $claimIds)
             ->with('evidences')
             ->get();
 
         $evidences = $verifications
-            ->flatMap(fn (\App\Models\ClaimVerification $verification) => $verification->evidences)
+            ->flatMap(fn (ClaimVerification $verification) => $verification->evidences)
             ->unique('id')
             ->values();
 
@@ -51,4 +50,3 @@ class GeminiAnalystService
         );
     }
 }
-

@@ -4,8 +4,8 @@ namespace App\Services\FactCheck;
 
 use App\Contracts\FactCheck\FactCheckProviderInterface;
 use App\Exceptions\AiProviderException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 final class GoogleFactCheckProvider implements FactCheckProviderInterface
 {
@@ -52,7 +52,7 @@ final class GoogleFactCheckProvider implements FactCheckProviderInterface
                     'languageCode' => 'es',
                     'key' => $this->apiKey,
                 ]);
-        } catch (\Illuminate\Http\Client\ConnectionException $exception) {
+        } catch (ConnectionException $exception) {
             throw AiProviderException::connection($exception->getMessage());
         }
 

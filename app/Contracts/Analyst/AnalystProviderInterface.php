@@ -4,6 +4,7 @@ namespace App\Contracts\Analyst;
 
 use App\DTO\Analyst\AnalystSynthesisResult;
 use App\DTO\Source\SourceAnalysisResult;
+use App\Exceptions\AiProviderException;
 use App\Models\Article;
 use App\Models\ModelPrediction;
 use Illuminate\Support\Collection;
@@ -13,15 +14,8 @@ interface AnalystProviderInterface
     /**
      * Synthesize qualitative analysis from article, claims, verifications, evidences, model predictions and source.
      *
-     * @param Article $article
-     * @param Collection $claims
-     * @param Collection $verifications
-     * @param Collection $evidences
-     * @param ModelPrediction|null $prediction
-     * @param SourceAnalysisResult $sourceAnalysis
-     * @return AnalystSynthesisResult
      *
-     * @throws \App\Exceptions\AiProviderException
+     * @throws AiProviderException
      */
     public function synthesize(
         Article $article,
@@ -42,4 +36,3 @@ interface AnalystProviderInterface
      */
     public function getModel(): string;
 }
-

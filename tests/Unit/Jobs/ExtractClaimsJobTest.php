@@ -272,7 +272,7 @@ class ExtractClaimsJobTest extends TestCase
         ]);
 
         $job = (new ExtractClaimsJob($analysis->id))->withFakeQueueInteractions();
-        $job->handle(new ClaimExtractionService());
+        $job->handle(new ClaimExtractionService);
 
         $analysis->refresh();
         $this->assertSame('failed', $analysis->status);

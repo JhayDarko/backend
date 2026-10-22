@@ -9,6 +9,12 @@ use Tests\TestCase;
 
 class ArticleApiTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsUser();
+    }
+
     use RefreshDatabase;
 
     public function test_can_list_articles_paginated(): void
@@ -201,4 +207,3 @@ class ArticleApiTest extends TestCase
             ->assertJsonValidationErrors(['url', 'content']);
     }
 }
-

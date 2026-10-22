@@ -54,7 +54,7 @@ class GoogleFactCheckProviderTest extends TestCase
             ], 200),
         ]);
 
-        $provider = new GoogleFactCheckProvider();
+        $provider = new GoogleFactCheckProvider;
         $results = $provider->search('El agua hierve a 100 grados.');
 
         $this->assertCount(2, $results);
@@ -73,7 +73,7 @@ class GoogleFactCheckProviderTest extends TestCase
             '*' => Http::response(['claims' => []], 200),
         ]);
 
-        $provider = new GoogleFactCheckProvider();
+        $provider = new GoogleFactCheckProvider;
         $results = $provider->search('Texto sin coincidencia');
 
         $this->assertSame([], $results);
@@ -87,7 +87,7 @@ class GoogleFactCheckProviderTest extends TestCase
 
         $this->expectException(AiProviderException::class);
 
-        $provider = new GoogleFactCheckProvider();
+        $provider = new GoogleFactCheckProvider;
         $provider->search('Texto de prueba');
     }
 
@@ -99,7 +99,7 @@ class GoogleFactCheckProviderTest extends TestCase
 
         $this->expectException(AiProviderException::class);
 
-        $provider = new GoogleFactCheckProvider();
+        $provider = new GoogleFactCheckProvider;
         $provider->search('Texto de prueba');
     }
 }

@@ -62,4 +62,3 @@ final class AnalysisStatusResource extends JsonResource
         ];
     }
 }
-

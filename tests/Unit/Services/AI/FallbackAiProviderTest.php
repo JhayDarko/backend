@@ -2,10 +2,10 @@
 
 namespace Tests\Unit\Services\AI;
 
+use App\Exceptions\AiProviderException;
 use App\Services\AI\Providers\FallbackAiProvider;
 use App\Services\AI\Providers\GeminiProvider;
 use App\Services\AI\Providers\OpenAiProvider;
-use App\Exceptions\AiProviderException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -47,7 +47,7 @@ final class FallbackAiProviderTest extends TestCase
             ], 200),
         ]);
 
-        $provider = new FallbackAiProvider(new GeminiProvider(), new OpenAiProvider());
+        $provider = new FallbackAiProvider(new GeminiProvider, new OpenAiProvider);
         $result = $provider->extractClaims('Título', 'Contenido suficiente para extraer claims.');
 
         $this->assertSame('Resumen generado por fallback.', $result->summary);
@@ -81,7 +81,7 @@ final class FallbackAiProviderTest extends TestCase
         ]);
 
         try {
-            (new FallbackAiProvider(new GeminiProvider(), new OpenAiProvider()))
+            (new FallbackAiProvider(new GeminiProvider, new OpenAiProvider))
                 ->extractClaims('Título', 'Contenido suficiente para extraer claims.');
             $this->fail('Expected exhausted provider quota to fail explicitly.');
         } catch (AiProviderException $exception) {

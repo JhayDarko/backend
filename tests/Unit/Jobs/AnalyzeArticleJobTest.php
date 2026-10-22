@@ -74,4 +74,3 @@ class AnalyzeArticleJobTest extends TestCase
         $this->assertNotNull($analysis->completed_at);
     }
 }
-

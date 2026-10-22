@@ -19,6 +19,7 @@ class AnalysisStatusApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->actingAsUser();
 
         $source = Source::create([
             'name' => 'Test Source',
@@ -145,4 +146,3 @@ class AnalysisStatusApiTest extends TestCase
         $response->assertNotFound();
     }
 }
-

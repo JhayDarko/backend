@@ -35,7 +35,7 @@ final class ClaimExtractionService
 
         $provider = app()->bound(AiProviderInterface::class)
             ? app(AiProviderInterface::class)
-            : new GeminiProvider();
+            : new GeminiProvider;
 
         if (! $provider instanceof AiProviderInterface) {
             throw AiProviderException::configuration('No AI provider implementation is registered.');
@@ -62,7 +62,7 @@ final class ClaimExtractionService
     }
 
     /**
-     * @param  array<int, array{text: string, importance: float, verifiable: bool, type: string, context: string}> $claims
+     * @param  array<int, array{text: string, importance: float, verifiable: bool, type: string, context: string}>  $claims
      */
     public function persistClaims(Analysis $analysis, ClaimExtractionResult $result): int
     {
@@ -251,7 +251,7 @@ PROMPT;
         foreach ($response->entities as $entity) {
             $name = $this->normalizeText((string) $entity->name, 'entity name');
             $type = strtolower(trim((string) $entity->type));
-            $key = $name . '|' . $type;
+            $key = $name.'|'.$type;
             if (isset($seenEntities[$key])) {
                 continue;
             }
@@ -266,7 +266,7 @@ PROMPT;
             $url = $source->url !== null && $source->url !== ''
                 ? $this->normalizeUrl((string) $source->url)
                 : null;
-            $key = $name . '|' . ($url ?? '');
+            $key = $name.'|'.($url ?? '');
             if (isset($seenSources[$key])) {
                 continue;
             }
@@ -344,7 +344,7 @@ PROMPT;
     }
 
     /**
-     * @param  array{text: string, importance: float, verifiable: bool, type: string, context: string} $claim
+     * @param  array{text: string, importance: float, verifiable: bool, type: string, context: string}  $claim
      * @return array{text: string, importance: float, verifiable: bool, type: string, context: string}
      */
     private function normalizeClaimPayload(array $claim): array
@@ -368,7 +368,7 @@ PROMPT;
     }
 
     /**
-     * @param  array<int, array{text: string, importance: float, verifiable: bool, type: string, context: string}> $claims
+     * @param  array<int, array{text: string, importance: float, verifiable: bool, type: string, context: string}>  $claims
      */
     private function validatePersistableClaims(array $claims): void
     {
@@ -407,6 +407,6 @@ PROMPT;
 
     private function calculateFingerprint(string $text, string $type, string $context): string
     {
-        return hash('sha256', strtolower($text) . '|' . strtolower($type) . '|' . strtolower($context));
+        return hash('sha256', strtolower($text).'|'.strtolower($type).'|'.strtolower($context));
     }
 }

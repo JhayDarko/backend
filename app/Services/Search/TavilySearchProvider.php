@@ -4,6 +4,7 @@ namespace App\Services\Search;
 
 use App\Contracts\Search\SearchProviderInterface;
 use App\Exceptions\AiProviderException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 
@@ -65,7 +66,7 @@ final class TavilySearchProvider implements SearchProviderInterface
                     'include_images' => false,
                     'exclude_domains' => $excluded,
                 ], fn (mixed $value): bool => $value !== []));
-        } catch (\Illuminate\Http\Client\ConnectionException $exception) {
+        } catch (ConnectionException $exception) {
             throw AiProviderException::connection($exception->getMessage());
         }
 

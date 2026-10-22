@@ -24,7 +24,8 @@ class FinalizeAnalysisJobTest extends TestCase
     {
         parent::setUp();
 
-        $this->app->instance(AnalystProviderInterface::class, new class implements AnalystProviderInterface {
+        $this->app->instance(AnalystProviderInterface::class, new class implements AnalystProviderInterface
+        {
             public function synthesize(
                 Article $article,
                 $claims,
@@ -137,4 +138,3 @@ class FinalizeAnalysisJobTest extends TestCase
         $this->assertSame($firstScoreId, $analysis->fresh()->score->id);
     }
 }
-

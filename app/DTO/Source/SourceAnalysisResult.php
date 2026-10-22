@@ -5,8 +5,8 @@ namespace App\DTO\Source;
 final class SourceAnalysisResult
 {
     /**
-     * @param array<int, string> $flags
-     * @param array<string, mixed> $details
+     * @param  array<int, string>  $flags
+     * @param  array<string, mixed>  $details
      */
     public function __construct(
         public string $domain,
@@ -32,4 +32,3 @@ final class SourceAnalysisResult
         ];
     }
 }
-

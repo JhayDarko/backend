@@ -12,6 +12,12 @@ use Tests\TestCase;
 
 class ArticleAnalysisPipelineTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsUser();
+    }
+
     use RefreshDatabase;
 
     public function test_analysis_request_returns_accepted_and_queues_the_pipeline(): void
@@ -41,7 +47,7 @@ class ArticleAnalysisPipelineTest extends TestCase
             'metadata' => ['source' => 'manual'],
         ]);
 
-        $response = $this->postJson('/api/v1/articles/' . $article->id . '/analyze');
+        $response = $this->postJson('/api/v1/articles/'.$article->id.'/analyze');
 
         $response->assertStatus(202);
 
@@ -53,7 +59,7 @@ class ArticleAnalysisPipelineTest extends TestCase
 
         Queue::assertPushed(AnalyzeArticleJob::class, fn (AnalyzeArticleJob $job): bool => $job->analysisId === $analysisId);
 
-        $statusResponse = $this->getJson('/api/v1/analyses/' . $analysisId . '/status');
+        $statusResponse = $this->getJson('/api/v1/analyses/'.$analysisId.'/status');
 
         $statusResponse->assertOk()
             ->assertJsonPath('data.id', $analysisId)

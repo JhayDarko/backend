@@ -38,4 +38,3 @@ final class ScoreResource extends JsonResource
         ];
     }
 }
-

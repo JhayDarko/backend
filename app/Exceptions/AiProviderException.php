@@ -27,7 +27,7 @@ class AiProviderException extends Exception
      */
     public static function httpError(int $status, string $message): self
     {
-        return new self("AI provider HTTP error {$status}: {$message}");
+        return new self("AI provider HTTP error {$status}: {$message}", $status);
     }
 
     /**

@@ -1,51 +1,81 @@
-name: Tests & Code Quality
+name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
 
 jobs:
-  tests:
-    name: PHPUnit Tests (PHP 8.4)
+  backend:
+    name: Backend (PHP 8.4)
     runs-on: ubuntu-latest
-
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fn_test
+          POSTGRES_USER: fn
+          POSTGRES_PASSWORD: secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fn -d fn_test" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, bcmath, curl, zip
+          php-version: "8.4"
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, pdo_pgsql, bcmath, curl, zip, gd
           coverage: none
 
-      - name: Get Composer Cache Directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer Dependencies
+      - name: Cache Composer
         uses: actions/cache@v4
         with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
 
-      - name: Install Dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: cp .env.example .env && php artisan key:generate
 
-      - name: Prepare Environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
 
-      - name: Run Test Suite
+      - name: Migrations on PostgreSQL
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: fn_test
+          DB_USERNAME: fn
+          DB_PASSWORD: secret
+        run: php artisan migrate --force
+
+      - name: Tests
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
-          DB_DATABASE: ':memory:'
-          GEMINI_API_KEY: ''
+          DB_DATABASE: ":memory:"
+          GEMINI_API_KEY: ""
         run: php artisan test
 
+      - name: Dependency audit
+        run: composer audit
+
+  frontend:
+    name: Frontend (Angular)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - run: npm run build
+      - run: npx ng test --watch=false

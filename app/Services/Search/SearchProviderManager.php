@@ -4,14 +4,12 @@ namespace App\Services\Search;
 
 use App\Contracts\Search\SearchProviderInterface;
 use App\DTO\Search\SearchResult;
-use App\Exceptions\AiProviderException;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 
 final class SearchProviderManager implements SearchProviderInterface
 {
     /**
-     * @param  array<string, SearchProviderInterface> $providers
+     * @param  array<string, SearchProviderInterface>  $providers
      */
     public function __construct(
         protected array $providers = [],

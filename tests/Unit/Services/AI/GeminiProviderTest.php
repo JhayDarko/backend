@@ -27,7 +27,7 @@ class GeminiProviderTest extends TestCase
         config(['ai.timeout' => 60]);
         config(['ai.prompt_version' => '1.0.0']);
 
-        $this->provider = new GeminiProvider();
+        $this->provider = new GeminiProvider;
     }
 
     #[Test]
@@ -110,7 +110,7 @@ class GeminiProviderTest extends TestCase
         config(['ai.gemini.api_key' => '']);
         config(['ai.gemini.api_keys' => []]);
 
-        new GeminiProvider();
+        new GeminiProvider;
     }
 
     #[Test]
@@ -141,7 +141,7 @@ class GeminiProviderTest extends TestCase
             'ai.gemini.api_keys' => ['gemini-key-1', 'gemini-key-2'],
         ]);
 
-        $provider = new GeminiProvider();
+        $provider = new GeminiProvider;
 
         $validResponse = [
             'candidates' => [[
@@ -196,7 +196,7 @@ class GeminiProviderTest extends TestCase
     public function it_skips_to_the_next_model_immediately_when_a_model_is_overloaded(): void
     {
         config(['ai.gemini.fallback_models' => ['gemini-fallback']]);
-        $provider = new GeminiProvider();
+        $provider = new GeminiProvider;
 
         $valid = ['candidates' => [['content' => ['parts' => [['text' => json_encode([
             'summary' => 'Resumen.',

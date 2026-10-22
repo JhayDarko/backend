@@ -9,14 +9,14 @@ use IteratorAggregate;
 /**
  * @implements IteratorAggregate<int, ClaimData>
  */
-final class ExtractedClaimsResponse implements IteratorAggregate, Countable
+final class ExtractedClaimsResponse implements Countable, IteratorAggregate
 {
     /**
-     * @param array<ClaimData> $claims
-     * @param array<EntityData> $entities
-     * @param array<SourceData> $sources
-     * @param array<string> $redFlags
-     * @param array<string, mixed> $rawData
+     * @param  array<ClaimData>  $claims
+     * @param  array<EntityData>  $entities
+     * @param  array<SourceData>  $sources
+     * @param  array<string>  $redFlags
+     * @param  array<string, mixed>  $rawData
      */
     public function __construct(
         public readonly string $summary,

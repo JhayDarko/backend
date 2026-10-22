@@ -5,10 +5,10 @@ namespace App\Services\Verification\DTO;
 final class ClaimExtractionResult
 {
     /**
-     * @param array<int, array{text: string, importance: float, verifiable: bool, type: string, context: string}> $claims
-     * @param array<int, array{name: string, type: string}> $entities
-     * @param array<int, array{name: string, url?: string|null}> $sources
-     * @param array<int, string> $redFlags
+     * @param  array<int, array{text: string, importance: float, verifiable: bool, type: string, context: string}>  $claims
+     * @param  array<int, array{name: string, type: string}>  $entities
+     * @param  array<int, array{name: string, url?: string|null}>  $sources
+     * @param  array<int, string>  $redFlags
      */
     public function __construct(
         public readonly string $summary,

@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Services\AI;
 
-use App\Contracts\ClassifierProviderInterface;
 use App\Exceptions\AiProviderException;
 use App\Services\AI\Providers\BertFakeNewsProvider;
 use Illuminate\Support\Facades\Http;
@@ -32,7 +31,7 @@ class BertFakeNewsProviderTest extends TestCase
             ], 200),
         ]);
 
-        $provider = new BertFakeNewsProvider();
+        $provider = new BertFakeNewsProvider;
         $result = $provider->classify('El gobierno anunció un plan', 'Contenido real del artículo de prueba.', 'Descripción breve');
 
         $this->assertSame('REAL', $result->label);
@@ -51,7 +50,7 @@ class BertFakeNewsProviderTest extends TestCase
             ], 200),
         ]);
 
-        $provider = new BertFakeNewsProvider();
+        $provider = new BertFakeNewsProvider;
 
         $this->expectException(AiProviderException::class);
         $provider->classify('Título', 'Contenido', 'Descripción');

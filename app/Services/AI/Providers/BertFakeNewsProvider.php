@@ -39,7 +39,7 @@ final class BertFakeNewsProvider implements ClassifierProviderInterface
             $response = Http::timeout($this->timeout)
                 ->connectTimeout($this->connectTimeout)
                 ->acceptJson()
-                ->post($this->baseUrl . '/classify', $payload);
+                ->post($this->baseUrl.'/classify', $payload);
         } catch (ConnectionException $exception) {
             throw AiProviderException::connection($exception->getMessage());
         }

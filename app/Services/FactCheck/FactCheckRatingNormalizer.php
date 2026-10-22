@@ -4,9 +4,6 @@ namespace App\Services\FactCheck;
 
 final class FactCheckRatingNormalizer
 {
-    /**
-     * @param string|null $rawRating
-     */
     public static function normalize(?string $rawRating): array
     {
         $value = trim((string) ($rawRating ?? ''));

@@ -18,6 +18,7 @@ final class AnalysisController extends Controller
         $perPage = min(max((int) $request->input('per_page', 15), 1), 100);
 
         $query = Analysis::query()
+            ->where('user_id', $request->user()->id)
             ->with(['article.source', 'score', 'predictions']);
 
         if ($status = $request->input('status')) {
@@ -48,6 +49,8 @@ final class AnalysisController extends Controller
 
     public function show(Analysis $analysis): AnalysisResource
     {
+        $this->authorize('view', $analysis);
+
         $analysis->load([
             'article.source',
             'score',
@@ -60,11 +63,15 @@ final class AnalysisController extends Controller
 
     public function status(Analysis $analysis): AnalysisStatusResource
     {
+        $this->authorize('view', $analysis);
+
         return new AnalysisStatusResource($analysis);
     }
 
     public function retry(Analysis $analysis): JsonResponse
     {
+        $this->authorize('view', $analysis);
+
         if ($analysis->status === 'processing') {
             return response()->json([
                 'message' => 'Analysis is currently processing and cannot be restarted.',
