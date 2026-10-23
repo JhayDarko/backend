@@ -10,7 +10,6 @@ use App\Services\Article\ArticleIngestionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Throwable;
 
 final class ArticleController extends Controller
 {
@@ -65,33 +64,24 @@ final class ArticleController extends Controller
     public function store(
         StoreArticleRequest $request
     ): JsonResponse {
-        try {
-            if ($request->filled('content')) {
-                $article = $this->ingestionService->ingestText(
-                    content: $request->validated('content'),
-                    title: $request->validated('title'),
-                    authorName: $request->validated('author_name'),
-                    userId: $request->user()->id,
-                );
-            } else {
-                $article = $this->ingestionService->ingest(
-                    $request->validated('url'),
-                    $request->user()->id,
-                );
-            }
-
-            $article->load('source');
-
-            return (new ArticleResource($article))
-                ->response()
-                ->setStatusCode(201);
-
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return response()->json([
-                'message' => 'Unable to process the article.',
-            ], 422);
+        if ($request->filled('content')) {
+            $article = $this->ingestionService->ingestText(
+                content: $request->validated('content'),
+                title: $request->validated('title'),
+                authorName: $request->validated('author_name'),
+                userId: $request->user()->id,
+            );
+        } else {
+            $article = $this->ingestionService->ingest(
+                $request->validated('url'),
+                $request->user()->id,
+            );
         }
+
+        $article->load('source');
+
+        return (new ArticleResource($article))
+            ->response()
+            ->setStatusCode(201);
     }
 }

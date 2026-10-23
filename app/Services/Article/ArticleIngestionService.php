@@ -4,6 +4,7 @@ namespace App\Services\Article;
 
 use App\Models\Article;
 use App\Models\Source;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 final class ArticleIngestionService
@@ -11,65 +12,63 @@ final class ArticleIngestionService
     public function __construct(
         private readonly ArticleExtractionService $extractor,
         private readonly DomainNormalizer $domainNormalizer,
+        private readonly ArticleRepository $articles,
     ) {}
 
     public function ingest(string $url, ?int $userId = null): Article
     {
         $data = $this->extractor->extract($url);
 
-        return DB::transaction(function () use ($data, $userId) {
-            $domain = $this->domainNormalizer->normalize($data->url);
+        $contentHash = $data->content
+            ? hash('sha256', $data->content)
+            : null;
 
-            $source = Source::firstOrCreate(
-                [
-                    'domain' => $domain,
-                ],
-                [
-                    'name' => $domain,
-                    'url' => 'https://'.$domain,
-                ]
-            );
-
-            $contentHash = $data->content
-                ? hash('sha256', $data->content)
-                : null;
-
-            $existingArticle = Article::query()
-                ->when(
+        try {
+            return DB::transaction(function () use ($data, $userId, $contentHash) {
+                $existingArticle = $this->articles->findDuplicateForUser(
+                    $userId,
                     $data->canonicalUrl,
-                    fn ($query) => $query->where(
-                        'canonical_url',
-                        $data->canonicalUrl
-                    )
-                )
-                ->when(
                     $contentHash,
-                    fn ($query) => $query->orWhere(
-                        'content_hash',
-                        $contentHash
-                    )
-                )
-                ->first();
+                );
 
-            if ($existingArticle) {
-                return $existingArticle;
-            }
+                if ($existingArticle) {
+                    return $existingArticle;
+                }
 
-            return Article::create([
-                'source_id' => $source->id,
-                'created_by' => $userId,
-                'url' => $data->url,
-                'canonical_url' => $data->canonicalUrl,
-                'title' => $data->title,
-                'description' => $data->description,
-                'content' => $data->content,
-                'author_name' => $data->authorName,
-                'published_at' => $data->publishedAt,
-                'language' => $data->language,
-                'content_hash' => $contentHash,
-                'metadata' => $data->metadata,
-            ]);
-        });
+                $domain = $this->domainNormalizer->normalize($data->url);
+
+                $source = Source::firstOrCreate(
+                    [
+                        'domain' => $domain,
+                    ],
+                    [
+                        'name' => $domain,
+                        'url' => 'https://'.$domain,
+                    ]
+                );
+
+                return $this->articles->create([
+                    'source_id' => $source->id,
+                    'created_by' => $userId,
+                    'url' => $data->url,
+                    'canonical_url' => $data->canonicalUrl,
+                    'title' => $data->title,
+                    'description' => $data->description,
+                    'content' => $data->content,
+                    'author_name' => $data->authorName,
+                    'published_at' => $data->publishedAt,
+                    'language' => $data->language,
+                    'content_hash' => $contentHash,
+                    'metadata' => $data->metadata,
+                ]);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            return $this->articles->findDuplicateForUser(
+                $userId,
+                $data->canonicalUrl,
+                $contentHash,
+            ) ?? throw $exception;
+        }
     }
 
     public function ingestText(string $content, ?string $title = null, ?string $authorName = null, ?int $userId = null, array $metadata = []): Article
@@ -77,29 +76,41 @@ final class ArticleIngestionService
         $content = trim($content);
         $contentHash = hash('sha256', $content);
 
-        $existingArticle = Article::query()
-            ->where('content_hash', $contentHash)
-            ->first();
-
-        if ($existingArticle) {
-            return $existingArticle;
-        }
-
         $derivedTitle = $title ? trim($title) : mb_substr($content, 0, 80).(mb_strlen($content) > 80 ? '...' : '');
 
-        return Article::create([
-            'source_id' => null,
-            'created_by' => $userId,
-            'url' => null,
-            'canonical_url' => null,
-            'title' => $derivedTitle,
-            'description' => null,
-            'content' => $content,
-            'author_name' => $authorName ? trim($authorName) : null,
-            'published_at' => now(),
-            'language' => 'es',
-            'content_hash' => $contentHash,
-            'metadata' => $metadata + ['submission_type' => 'raw_text'],
-        ]);
+        try {
+            return DB::transaction(function () use ($userId, $contentHash, $derivedTitle, $content, $authorName, $metadata) {
+                $existingArticle = $this->articles->findDuplicateForUser(
+                    $userId,
+                    null,
+                    $contentHash,
+                );
+
+                if ($existingArticle) {
+                    return $existingArticle;
+                }
+
+                return $this->articles->create([
+                    'source_id' => null,
+                    'created_by' => $userId,
+                    'url' => null,
+                    'canonical_url' => null,
+                    'title' => $derivedTitle,
+                    'description' => null,
+                    'content' => $content,
+                    'author_name' => $authorName ? trim($authorName) : null,
+                    'published_at' => now(),
+                    'language' => 'es',
+                    'content_hash' => $contentHash,
+                    'metadata' => $metadata + ['submission_type' => 'raw_text'],
+                ]);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            return $this->articles->findDuplicateForUser(
+                $userId,
+                null,
+                $contentHash,
+            ) ?? throw $exception;
+        }
     }
 }

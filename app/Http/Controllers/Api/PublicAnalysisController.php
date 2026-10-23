@@ -11,7 +11,6 @@ use App\Models\ApiUsage;
 use App\Services\Article\ArticleIngestionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Throwable;
 
 /** Public API: submit a news item (URL or text) and start its analysis in one call. */
 final class PublicAnalysisController extends Controller
@@ -27,18 +26,15 @@ final class PublicAnalysisController extends Controller
         $limit = (int) $key->limits()['analyses_per_day'];
 
         if ($usage->analyses >= $limit) {
-            return response()->json(['message' => "Alcanzaste el límite diario de {$limit} análisis de tu plan."], 429);
+            return response()->json([
+                'code' => 'daily_limit_exceeded',
+                'message' => "Alcanzaste el límite diario de {$limit} análisis de tu plan.",
+            ], 429);
         }
 
-        try {
-            $article = $request->filled('content')
-                ? $ingestion->ingestText($request->validated('content'), $request->validated('title'), $request->validated('author_name'), $key->user_id)
-                : $ingestion->ingest($request->validated('url'), $key->user_id);
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return response()->json(['message' => 'No se pudo procesar la noticia.'], 422);
-        }
+        $article = $request->filled('content')
+            ? $ingestion->ingestText($request->validated('content'), $request->validated('title'), $request->validated('author_name'), $key->user_id)
+            : $ingestion->ingest($request->validated('url'), $key->user_id);
 
         [$analysis, $created] = $startAnalysis($article, $key->user_id);
 

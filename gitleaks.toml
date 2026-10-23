@@ -1,0 +1,3 @@
+# Keep Gitleaks default rules. Add only narrow, manually verified exceptions.
+[extend]
+useDefault = true

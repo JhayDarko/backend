@@ -2,35 +2,31 @@
 
 namespace App\Services\Article;
 
+use App\Exceptions\ArticleInputException;
 use App\Services\Article\DTO\ExtractedArticleData;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\Http;
-use RuntimeException;
 use Symfony\Component\DomCrawler\Crawler;
 
 final class ArticleExtractionService
 {
+    public function __construct(
+        private readonly SafeUrlFetcher $urlFetcher,
+    ) {}
+
     public function extract(string $url): ExtractedArticleData
     {
-        $response = Http::timeout(20)
-            ->connectTimeout(8)
-            ->withHeaders([
-                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36',
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language' => 'es-CO,es;q=0.9,en;q=0.8',
-            ])
-            ->get($url);
-
-        if (! $response->successful()) {
-            throw new RuntimeException(
-                "Unable to retrieve article. HTTP status: {$response->status()}"
-            );
+        try {
+            $html = $this->urlFetcher->fetch($url);
+        } catch (SafeUrlFetchException $exception) {
+            throw match ($exception->reason) {
+                SafeUrlFetchException::BLOCKED => ArticleInputException::blockedUrl($exception),
+                SafeUrlFetchException::FETCH_FAILED => ArticleInputException::fetchFailed($exception),
+                default => ArticleInputException::contentNotExtractable($exception),
+            };
         }
 
-        $html = $response->body();
-
         if (trim($html) === '') {
-            throw new RuntimeException('The retrieved page is empty.');
+            throw ArticleInputException::contentNotExtractable();
         }
 
         $crawler = new Crawler($html);
@@ -49,9 +45,7 @@ final class ArticleExtractionService
         ]);
 
         if (! $title) {
-            throw new RuntimeException(
-                'Article title could not be extracted.'
-            );
+            throw ArticleInputException::contentNotExtractable();
         }
 
         $description = $this->firstNonEmpty([
@@ -66,6 +60,10 @@ final class ArticleExtractionService
             $this->extractArticleContent($crawler),
             $this->extractParagraphContent($crawler),
         ]);
+
+        if (! $content) {
+            throw ArticleInputException::contentNotExtractable();
+        }
 
         $authorName = $this->extractAuthor(
             $crawler,

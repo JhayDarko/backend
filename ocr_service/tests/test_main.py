@@ -2,10 +2,14 @@ import base64
 import unittest
 from io import BytesIO
 
+from app.main import (
+    decode_image,
+    extract_lines_from_results,
+    extract_text_from_results,
+    recognize_image,
+)
 from fastapi import HTTPException
 from PIL import Image
-
-from app.main import decode_image, extract_lines_from_results, extract_text_from_results, recognize_image
 
 
 class OCRResult:

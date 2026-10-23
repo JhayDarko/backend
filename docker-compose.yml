@@ -60,7 +60,7 @@ services:
     ports:
       - "127.0.0.1:${OCR_SERVICE_PORT:-8002}:8000"
     volumes:
-      - paddleocr_cache:/root/.paddlex
+      - paddleocr_cache_v2:/home/appuser/.paddlex
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -71,4 +71,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  paddleocr_cache:
+  paddleocr_cache_v2:

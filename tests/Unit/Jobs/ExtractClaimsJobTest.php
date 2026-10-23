@@ -7,6 +7,7 @@ use App\Exceptions\AiProviderException;
 use App\Jobs\AnalyzeArticleJob;
 use App\Jobs\ClassifyArticleJob;
 use App\Jobs\ExtractClaimsJob;
+use App\Jobs\FinalizeAnalysisJob;
 use App\Jobs\SearchClaimEvidenceJob;
 use App\Jobs\VerifyClaimJob;
 use App\Models\Analysis;
@@ -14,6 +15,7 @@ use App\Models\Article;
 use App\Models\Source;
 use App\Services\AI\DTO\ExtractedClaimsResponse;
 use App\Services\Verification\ClaimExtractionService;
+use Illuminate\Bus\Batch;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -228,10 +230,23 @@ class ExtractClaimsJobTest extends TestCase
             $claimIds = $analysis->claims()->pluck('id');
             $jobs = collect($batch->jobs);
 
-            return $jobs->contains(fn ($job) => $job instanceof ClassifyArticleJob && $job->analysisId === $analysis->id)
+            if (! $batch->allowsFailures()
+                || count($batch->thenCallbacks()) !== 1
+                || count($batch->finallyCallbacks()) !== 1) {
+                return false;
+            }
+
+            $failedBatch = \Mockery::mock(Batch::class);
+            $failedBatch->shouldReceive('hasFailures')->once()->andReturn(true);
+            ($batch->finallyCallbacks()[0])($failedBatch);
+
+            return $batch->allowsFailures()
+                && $jobs->contains(fn ($job) => $job instanceof ClassifyArticleJob && $job->analysisId === $analysis->id)
                 && $jobs->contains(fn ($job) => $job instanceof VerifyClaimJob && $claimIds->contains($job->claimId))
                 && $jobs->contains(fn ($job) => $job instanceof SearchClaimEvidenceJob && $claimIds->contains($job->claimId));
         });
+
+        Bus::assertDispatched(FinalizeAnalysisJob::class, fn (FinalizeAnalysisJob $job): bool => $job->analysisId === $analysis->id);
     }
 
     public function test_extract_claims_job_does_not_retry_when_provider_quota_is_exhausted(): void

@@ -2,6 +2,9 @@ openapi: 3.0.3
 info:
   title: FactNode API pública
   version: "1.0"
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   description: |
     Analiza noticias y consulta veredictos de credibilidad.
     Autenticación con `X-API-Key` (crea tu clave en la app, sección "API"). Planes: gratuito (10 req/min, 10 análisis/día) y Pro (60 req/min, 300 análisis/día).
@@ -12,6 +15,7 @@ security:
 paths:
   /analyses:
     post:
+      operationId: createPublicAnalysis
       summary: Inicia el análisis de una noticia (URL o texto)
       requestBody:
         required: true
@@ -25,36 +29,87 @@ paths:
                 title: { type: string }
       responses:
         "202": { description: Análisis creado y en cola }
-        "200": { description: Ya existía un análisis de esa noticia para tu cuenta }
-        "401": { description: API key inválida }
-        "422": { description: Datos inválidos }
-        "429": { description: Límite por minuto o cuota diaria excedidos }
+        "200": { description: Ya existía un análisis de esa noticia para tu cuenta; artículos y deduplicación no se comparten entre cuentas }
+        "401":
+          description: API key inválida o ausente
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "422":
+          description: Datos inválidos, URL bloqueada/no descargable o noticia sin contenido extraíble
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                invalidInput:
+                  value: { code: invalid_input, message: "Los datos enviados no son válidos." }
+                blockedUrl:
+                  value: { code: url_blocked, message: "No se permite acceder a esa dirección." }
+                fetchFailed:
+                  value: { code: fetch_failed, message: "No se pudo descargar la noticia." }
+                contentNotExtractable:
+                  value: { code: content_not_extractable, message: "La página no contiene texto de noticia que se pueda extraer." }
+        "429":
+          description: Límite por minuto o cuota diaria excedidos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "500":
+          description: Error interno inesperado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /analyses/{id}:
     get:
+      operationId: getPublicAnalysis
       summary: Informe completo (score, veredicto, claims y evidencias)
       parameters: [{ $ref: "#/components/parameters/Id" }]
-      responses: { "200": { description: OK }, "403": { description: No es tu análisis } }
+      responses:
+        "200": { description: OK; score incluye language_signal_available (false cuando se usa el fallback neutro por falta de predicción BERT) }
+        "403": { description: No es tu análisis }
   /analyses/{id}/status:
     get:
+      operationId: getPublicAnalysisStatus
       summary: Estado y progreso (para polling)
       parameters: [{ $ref: "#/components/parameters/Id" }]
-      responses: { "200": { description: "status, step, progress 0-100" } }
+      responses:
+        "200": { description: "status, step, progress 0-100" }
+        "401": { description: API key inválida o ausente }
+        "403": { description: No es tu análisis }
   /analyses/{id}/report/json:
     get:
+      operationId: getPublicAnalysisJsonReport
       summary: Informe descargable en JSON (solo análisis completados)
       parameters: [{ $ref: "#/components/parameters/Id" }]
       responses: { "200": { description: OK }, "409": { description: Aún no termina } }
   /analyses/{id}/report/pdf:
     get:
+      operationId: getPublicAnalysisPdfReport
       summary: Informe descargable en PDF (solo análisis completados)
       parameters: [{ $ref: "#/components/parameters/Id" }]
       responses: { "200": { description: application/pdf }, "409": { description: Aún no termina } }
   /usage:
     get:
+      operationId: getPublicUsage
       summary: Consumo de hoy y límites de tu plan
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "401": { description: API key inválida o ausente }
+        "429": { description: Límite de solicitudes por minuto excedido }
 components:
   securitySchemes:
     ApiKey: { type: apiKey, in: header, name: X-API-Key }
   parameters:
     Id: { name: id, in: path, required: true, schema: { type: integer } }
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: Código estable para clasificar el error }
+        message: { type: string, description: Mensaje seguro para mostrar al usuario }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }

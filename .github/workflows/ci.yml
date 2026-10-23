@@ -1,5 +1,12 @@
 name: CI
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, master, develop]
@@ -10,6 +17,7 @@ jobs:
   backend:
     name: Backend (PHP 8.4)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -20,8 +28,32 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U fn -d fn_test" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: testing
+      APP_DEBUG: "false"
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: fn_test
+      DB_USERNAME: fn
+      DB_PASSWORD: secret
+      DB_URL: ""
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      GEMINI_API_KEY: ""
+      OPENAI_API_KEY: ""
+      TAVILY_API_KEY: ""
+      BRAVE_API_KEY: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -30,7 +62,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.lock') }}
@@ -42,40 +74,183 @@ jobs:
       - name: Code style (Pint)
         run: vendor/bin/pint --test
 
-      - name: Migrations on PostgreSQL
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: fn_test
-          DB_USERNAME: fn
-          DB_PASSWORD: secret
-        run: php artisan migrate --force
+      - name: Static analysis (Larastan)
+        run: vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=1G --no-progress
+
+      - name: Verify PostgreSQL migration up and down
+        run: |
+          php artisan migrate --force
+          php artisan migrate:rollback --step=2 --force
+          php artisan migrate --force
+          php artisan migrate:fresh --force
+
+      - name: Tests (PostgreSQL)
+        run: |
+          mkdir -p reports
+          vendor/bin/phpunit --log-junit reports/phpunit.xml
+
+      - name: Upload PHPUnit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-phpunit-report
+          path: reports/phpunit.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  python:
+    name: Python (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: ml_service
+            lockfile: ml_service/requirements-test.txt
+          - service: ocr_service
+            lockfile: ocr_service/requirements-test.txt
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ${{ matrix.lockfile }}
+
+      - name: Install test dependencies
+        run: python -m pip install --require-hashes -r requirements-test.txt
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format
+        run: ruff format --check .
 
       - name: Tests
-        env:
-          APP_ENV: testing
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ":memory:"
-          GEMINI_API_KEY: ""
-        run: php artisan test
+        run: python -m pytest -q
 
-      - name: Dependency audit
-        run: composer audit
+  openapi:
+    name: OpenAPI contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Lint OpenAPI
+        run: npx --yes @redocly/cli@2.67.1 lint public/api-docs/openapi.yaml
 
   frontend:
     name: Frontend (Angular)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --legacy-peer-deps --no-audit --no-fund
-      - run: npm run build
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx ng build --configuration production
       - run: npx ng test --watch=false
+
+  security:
+    name: Security audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Gitleaks current-tree scan
+        run: >-
+          docker run --rm
+          --volume "${{ github.workspace }}:/workspace:ro"
+          --workdir /workspace
+          ghcr.io/gitleaks/gitleaks:v8.30.1
+          detect --source=/workspace --no-git --config=/workspace/gitleaks.toml
+          --redact --exit-code=1
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+
+      - name: Composer audit
+        run: composer audit --locked
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: npm audit
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            ml_service/requirements.txt
+            ml_service/requirements-test.txt
+            ocr_service/requirements.txt
+            ocr_service/requirements-test.txt
+
+      - name: Install pip-audit
+        run: python -m pip install pip-audit==2.10.1
+
+      - name: Audit Python dependencies
+        run: |
+          pip-audit --no-deps --vulnerability-service osv \
+            --ignore-vuln PYSEC-2026-2289 \
+            --ignore-vuln PYSEC-2026-2288 \
+            --ignore-vuln PYSEC-2026-2290 \
+            --ignore-vuln PYSEC-2026-4174 \
+            --ignore-vuln PYSEC-2026-3929 \
+            --ignore-vuln PYSEC-2025-217 \
+            --requirement ml_service/requirements.txt
+          pip-audit --no-deps --vulnerability-service osv \
+            --ignore-vuln PYSEC-2026-2289 \
+            --ignore-vuln PYSEC-2026-2288 \
+            --ignore-vuln PYSEC-2026-2290 \
+            --ignore-vuln PYSEC-2026-4174 \
+            --ignore-vuln PYSEC-2026-3929 \
+            --ignore-vuln PYSEC-2025-217 \
+            --requirement ml_service/requirements-test.txt
+          pip-audit --no-deps --vulnerability-service osv \
+            --requirement ocr_service/requirements.txt
+          pip-audit --no-deps --vulnerability-service osv \
+            --requirement ocr_service/requirements-test.txt

@@ -35,8 +35,10 @@ class PublicApiTest extends TestCase
 
     public function test_requests_without_a_valid_key_are_rejected(): void
     {
-        $this->postJson('/api/public/v1/analyses', ['content' => str_repeat('texto de prueba ', 5)])->assertUnauthorized();
-        $this->withHeader('X-API-Key', 'fn_live_falsa')->getJson('/api/public/v1/usage')->assertUnauthorized();
+        $this->postJson('/api/public/v1/analyses', ['content' => str_repeat('texto de prueba ', 5)])
+            ->assertUnauthorized()->assertJsonPath('code', 'invalid_api_key');
+        $this->withHeader('X-API-Key', 'fn_live_falsa')->getJson('/api/public/v1/usage')
+            ->assertUnauthorized()->assertJsonPath('code', 'invalid_api_key');
     }
 
     public function test_revoked_keys_stop_working(): void
@@ -84,7 +86,9 @@ class PublicApiTest extends TestCase
         [, $plain] = $this->issueKey();
 
         $this->withHeader('X-API-Key', $plain)->postJson('/api/public/v1/analyses', ['content' => 'Primera noticia con texto suficiente para analizar.'])->assertAccepted();
-        $this->withHeader('X-API-Key', $plain)->postJson('/api/public/v1/analyses', ['content' => 'Segunda noticia con texto suficiente para analizar.'])->assertStatus(429);
+        $this->withHeader('X-API-Key', $plain)->postJson('/api/public/v1/analyses', ['content' => 'Segunda noticia con texto suficiente para analizar.'])
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'daily_limit_exceeded');
     }
 
     public function test_per_minute_limit_depends_on_the_plan(): void

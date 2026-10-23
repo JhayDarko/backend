@@ -17,6 +17,7 @@ class Analysis extends Model
         'confidence_score' => 'decimal:2',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     protected $fillable = [
@@ -32,6 +33,7 @@ class Analysis extends Model
         'started_at',
         'completed_at',
         'error',
+        'metadata',
     ];
 
     public function user(): BelongsTo

@@ -147,13 +147,17 @@ def recognize_image(image_bytes: bytes) -> OCRResponse:
     try:
         with Image.open(BytesIO(image_bytes)) as image:
             if image.width * image.height > MAX_IMAGE_PIXELS:
-                raise HTTPException(status_code=413, detail="Image resolution exceeds the supported limit.")
+                raise HTTPException(
+                    status_code=413, detail="Image resolution exceeds the supported limit."
+                )
             image.load()
             image_array = np.asarray(image.convert("RGB"))
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-        raise HTTPException(status_code=422, detail="Uploaded file is not a supported image.") from exc
+        raise HTTPException(
+            status_code=422, detail="Uploaded file is not a supported image."
+        ) from exc
 
     try:
         with _inference_lock:

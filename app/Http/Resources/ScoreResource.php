@@ -29,6 +29,7 @@ final class ScoreResource extends JsonResource
             'verdict_rationale' => data_get($this->metadata, 'verdict_rationale'),
             'evidence_coverage' => data_get($this->metadata, 'signals.evidence_coverage', 0),
             'fact_check_coverage' => data_get($this->metadata, 'signals.fact_check_coverage', 0),
+            'language_signal_available' => data_get($this->metadata, 'signals.language_signal_available'),
             'suggested_verdict' => data_get($this->metadata, 'suggested_verdict'),
             'claim_evaluations' => data_get($this->metadata, 'claim_evaluations', []),
             'key_findings' => data_get($this->metadata, 'key_findings', []),

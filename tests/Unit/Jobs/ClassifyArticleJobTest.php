@@ -123,7 +123,7 @@ class ClassifyArticleJobTest extends TestCase
         $this->assertSame('pending', $analysis->fresh()->status);
     }
 
-    public function test_permanent_failure_marks_analysis_as_failed(): void
+    public function test_permanent_classifier_failure_is_recorded_without_failing_analysis(): void
     {
         $source = Source::query()->create([
             'name' => 'Reuters',
@@ -150,8 +150,9 @@ class ClassifyArticleJobTest extends TestCase
 
         $analysis->refresh();
 
-        $this->assertSame('failed', $analysis->status);
-        $this->assertSame('BERT service unavailable.', $analysis->error);
-        $this->assertNotNull($analysis->completed_at);
+        $this->assertSame('processing', $analysis->status);
+        $this->assertSame(['classifier_unavailable' => true], $analysis->metadata);
+        $this->assertNull($analysis->error);
+        $this->assertNull($analysis->completed_at);
     }
 }

@@ -101,12 +101,11 @@ class ClassifyArticleJob implements ShouldQueue
     {
         $analysis = Analysis::query()->find($this->analysisId);
 
-        if ($analysis && ! $analysis->score()->exists()) {
-            $analysis->update([
-                'status' => 'failed',
-                'error' => $exception->getMessage(),
-                'completed_at' => now(),
-            ]);
+        if ($analysis && $analysis->article()->exists()) {
+            $metadata = $analysis->metadata ?? [];
+            $metadata['classifier_unavailable'] = true;
+
+            $analysis->update(['metadata' => $metadata]);
         }
 
         Log::error('ClassifyArticleJob permanently failed', [

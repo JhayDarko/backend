@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Contracts\Article\HostResolverInterface;
 use App\Models\Article;
 use App\Models\Source;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ArticleApiTest extends TestCase
@@ -196,7 +200,46 @@ class ArticleApiTest extends TestCase
         $res2->assertStatus(201);
 
         $this->assertSame($res1->json('data.id'), $res2->json('data.id'));
-        $this->assertSame(1, Article::where('content', $payload['content'])->count());
+
+        $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser);
+        $res3 = $this->postJson('/api/v1/articles', $payload)->assertCreated();
+
+        $this->assertNotSame($res1->json('data.id'), $res3->json('data.id'));
+        $this->assertSame(2, Article::where('content', $payload['content'])->count());
+        $this->assertSame($this->user->id, Article::findOrFail($res1->json('data.id'))->created_by);
+        $this->assertSame($otherUser->id, Article::findOrFail($res3->json('data.id'))->created_by);
+    }
+
+    public function test_url_deduplication_reuses_only_articles_owned_by_the_same_user(): void
+    {
+        $url = 'https://news.example.test/story';
+        Http::fake([
+            $url => Http::response(
+                '<html><head><title>Noticia de prueba</title><link rel="canonical" href="'.$url.'"></head><body><article><p>Contenido de prueba compartido entre usuarios sin compartir artículos.</p></article></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+        ]);
+        $this->app->instance(HostResolverInterface::class, new class implements HostResolverInterface
+        {
+            public function resolve(string $hostname): array
+            {
+                return ['93.184.216.34'];
+            }
+        });
+
+        $first = $this->postJson('/api/v1/articles', ['url' => $url])->assertCreated();
+        $sameUser = $this->postJson('/api/v1/articles', ['url' => $url])->assertCreated();
+
+        $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser);
+        $otherAccount = $this->postJson('/api/v1/articles', ['url' => $url])->assertCreated();
+
+        $this->assertSame($first->json('data.id'), $sameUser->json('data.id'));
+        $this->assertNotSame($first->json('data.id'), $otherAccount->json('data.id'));
+        $this->assertSame(2, Article::query()->where('canonical_url', $url)->count());
+        Http::assertSentCount(3);
     }
 
     public function test_store_article_fails_if_neither_url_nor_content_provided(): void

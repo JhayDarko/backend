@@ -116,6 +116,7 @@ class CredibilityScoreService
                 'evidence_coverage' => round($evidenceCoverage, 4),
                 'fact_check_coverage' => round($factCheckCoverage, 4),
                 'has_bert_prediction' => $prediction !== null,
+                'language_signal_available' => $prediction !== null,
                 'has_analyst_synthesis' => $analystSynthesis !== null,
                 'independent_fact_checkers' => $independentFactCheckers,
             ],

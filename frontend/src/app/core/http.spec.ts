@@ -24,4 +24,25 @@ describe('errorMessage', () => {
 
     expect(errorMessage(error)).toBe('No se pudo leer la imagen en este momento.');
   });
+
+  it('uses the stable API error code to show a specific ingestion message', () => {
+    const error = new HttpErrorResponse({
+      status: 422,
+      error: { code: 'url_blocked', message: 'Internal validation detail.' },
+    });
+
+    expect(errorMessage(error)).toBe('No se permite acceder a esa dirección.');
+  });
+
+  it('keeps field validation messages ahead of the generic invalid-input code', () => {
+    const error = new HttpErrorResponse({
+      status: 422,
+      error: {
+        code: 'invalid_input',
+        errors: { image: ['El archivo debe ser una imagen.'] },
+      },
+    });
+
+    expect(errorMessage(error)).toBe('El archivo debe ser una imagen.');
+  });
 });

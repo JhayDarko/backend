@@ -117,6 +117,7 @@ class CredibilityScoreServiceTest extends TestCase
         $this->assertSame(100.0, $scoreResult->evidenceScore);
         $this->assertSame(95.0, $scoreResult->sourceQualityScore);
         $this->assertSame(95.0, $scoreResult->consistencyScore);
+        $this->assertTrue($scoreResult->breakdown['signals']['language_signal_available']);
     }
 
     public function test_calculates_low_credibility_score_for_false_content(): void
@@ -216,6 +217,44 @@ class CredibilityScoreServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(40.0, $scoreResult->finalScore);
         $this->assertLessThan(65.0, $scoreResult->finalScore);
         $this->assertSame('inconclusive', $scoreResult->finalVerdict);
+    }
+
+    public function test_missing_classifier_keeps_the_reference_score_and_records_unavailable_language_signal(): void
+    {
+        config([
+            'scoring.weights' => [
+                'evidence' => 0.72,
+                'language' => 0.03,
+                'source_quality' => 0.05,
+                'corroboration' => 0.12,
+                'independence' => 0.03,
+                'consistency' => 0.05,
+                'transparency' => 0.0,
+            ],
+        ]);
+        $article = Article::query()->create([
+            'title' => 'Rumor sin verificar',
+            'content' => 'Se comenta en redes que algo podría ocurrir.',
+            'url' => 'https://sitio-desconocido.com/rumor',
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'processing',
+        ]);
+
+        $result = $this->service->calculate(
+            $analysis,
+            new SourceAnalysisResult(
+                domain: 'sitio-desconocido.com',
+                trustTier: 'unverified_domain',
+                reputationScore: 0.50,
+                isKnownFactChecker: false,
+            ),
+        );
+
+        $this->assertSame(50.0, $result->languageScore);
+        $this->assertSame(44.0, $result->finalScore);
+        $this->assertFalse($result->breakdown['signals']['language_signal_available']);
     }
 
     public function test_search_hits_without_fact_check_match_do_not_create_false_confidence(): void

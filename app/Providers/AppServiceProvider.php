@@ -4,12 +4,14 @@ namespace App\Providers;
 
 use App\Contracts\AiProviderInterface;
 use App\Contracts\Analyst\AnalystProviderInterface;
+use App\Contracts\Article\HostResolverInterface;
 use App\Contracts\ClassifierProviderInterface;
 use App\Contracts\FactCheck\FactCheckProviderInterface;
 use App\Contracts\Search\SearchProviderInterface;
 use App\Services\AI\Providers\BertFakeNewsProvider;
 use App\Services\AI\Providers\FallbackAiProvider;
 use App\Services\AI\Providers\GeminiAnalystProvider;
+use App\Services\Article\SystemHostResolver;
 use App\Services\FactCheck\GoogleFactCheckProvider;
 use App\Services\Search\SearchProviderManager;
 use Illuminate\Foundation\DevCommands;
@@ -22,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(HostResolverInterface::class, SystemHostResolver::class);
         $this->app->bind(AiProviderInterface::class, FallbackAiProvider::class);
         $this->app->bind(AnalystProviderInterface::class, GeminiAnalystProvider::class);
         $this->app->bind(ClassifierProviderInterface::class, BertFakeNewsProvider::class);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Exceptions\AiProviderException;
+use App\Exceptions\IngestionProviderUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOcrRequest;
 use App\Http\Resources\ArticleResource;
@@ -29,13 +30,14 @@ final class OcrController extends Controller
         } catch (AiProviderException $exception) {
             Log::warning('OCR failed', ['error' => $exception->getMessage()]);
 
-            return response()->json([
-                'message' => 'No se pudo leer la imagen. Verifica que el servicio local PaddleOCR esté activo e inténtalo de nuevo.',
-            ], 503);
+            throw IngestionProviderUnavailableException::ocr($exception);
         }
 
         if ($recognized['lines'] === []) {
-            return response()->json(['message' => 'No se detectó texto suficiente en la imagen.'], 422);
+            return response()->json([
+                'code' => 'content_not_extractable',
+                'message' => 'No se detectó texto suficiente en la imagen.',
+            ], 422);
         }
 
         try {
@@ -43,17 +45,21 @@ final class OcrController extends Controller
         } catch (AiProviderException $exception) {
             Log::warning('Gemini OCR text classification failed', ['error' => $exception->getMessage()]);
 
-            return response()->json([
-                'message' => 'No se pudo identificar automáticamente el texto de la noticia. Verifica la configuración de Gemini e inténtalo de nuevo.',
-            ], 503);
+            throw IngestionProviderUnavailableException::gemini($exception);
         }
 
         $content = $classification['news_text'];
         if (mb_strlen($content) < 30) {
-            return response()->json(['message' => 'No se detectó texto suficiente en la imagen.'], 422);
+            return response()->json([
+                'code' => 'content_not_extractable',
+                'message' => 'No se detectó texto suficiente en la imagen.',
+            ], 422);
         }
         if (mb_strlen($content) > 65000) {
-            return response()->json(['message' => 'El texto reconocido supera el límite de 65 000 caracteres.'], 422);
+            return response()->json([
+                'code' => 'content_not_extractable',
+                'message' => 'El texto reconocido supera el límite de 65 000 caracteres.',
+            ], 422);
         }
 
         $path = $image->store('ocr-images');

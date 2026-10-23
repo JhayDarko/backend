@@ -102,7 +102,7 @@ class OcrApiTest extends TestCase
         $this->postJson('/api/v1/articles/ocr', [
             'image' => UploadedFile::fake()->image('captura.png'),
         ])->assertStatus(503)
-            ->assertJsonPath('message', fn ($message) => str_contains($message, 'Gemini'));
+            ->assertJsonPath('code', 'gemini_unavailable');
 
         $this->assertDatabaseCount('articles', 0);
     }
@@ -118,7 +118,8 @@ class OcrApiTest extends TestCase
         ])]);
 
         $this->postJson('/api/v1/articles/ocr', ['image' => UploadedFile::fake()->image('vacia.png')])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'content_not_extractable');
 
         $this->assertDatabaseCount('articles', 0);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'generativelanguage.googleapis.com'));
@@ -132,7 +133,8 @@ class OcrApiTest extends TestCase
 
         $this->postJson('/api/v1/articles/ocr', [
             'image' => UploadedFile::fake()->image('captura.png'),
-        ])->assertStatus(503);
+        ])->assertStatus(503)
+            ->assertJsonPath('code', 'gemini_unavailable');
 
         $this->assertDatabaseCount('articles', 0);
     }
@@ -140,7 +142,7 @@ class OcrApiTest extends TestCase
     public function test_non_image_files_are_rejected(): void
     {
         $this->postJson('/api/v1/articles/ocr', ['image' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf')])
-            ->assertStatus(422)->assertJsonValidationErrors('image');
+            ->assertStatus(422)->assertJsonPath('code', 'invalid_input')->assertJsonValidationErrors('image');
     }
 
     public function test_local_ocr_service_outage_returns_a_friendly_error(): void
@@ -149,7 +151,7 @@ class OcrApiTest extends TestCase
 
         $this->postJson('/api/v1/articles/ocr', ['image' => UploadedFile::fake()->image('a.png')])
             ->assertStatus(503)
-            ->assertJsonPath('message', fn ($message) => str_contains($message, 'PaddleOCR'));
+            ->assertJsonPath('code', 'ocr_unavailable');
     }
 
     /**

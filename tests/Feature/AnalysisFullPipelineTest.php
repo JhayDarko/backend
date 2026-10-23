@@ -134,7 +134,11 @@ final class AnalysisFullPipelineTest extends TestCase
                 'analyst_summary' => 'Las afirmaciones principales cuentan con revisiones directas.',
                 'truth_assessment' => ['label' => 'mostly_true', 'display' => 'Mayormente cierta'],
                 'verdict_rationale' => 'La cobertura de evidencia es suficiente.',
-                'signals' => ['evidence_coverage' => 1.0, 'fact_check_coverage' => 0.75],
+                'signals' => [
+                    'evidence_coverage' => 1.0,
+                    'fact_check_coverage' => 0.75,
+                    'language_signal_available' => true,
+                ],
                 'claim_evaluations' => [[
                     'claim_id' => 1,
                     'claim_text' => 'El PIB creció.',
@@ -201,6 +205,7 @@ final class AnalysisFullPipelineTest extends TestCase
         $response->assertJsonPath('data.score.final_score', '92.50');
         $response->assertJsonPath('data.score.summary', 'Las afirmaciones principales cuentan con revisiones directas.');
         $response->assertJsonPath('data.score.truth_assessment.label', 'mostly_true');
+        $response->assertJsonPath('data.score.language_signal_available', true);
         $response->assertJsonPath('data.score.claim_evaluations.0.stance', 'supported');
         $response->assertJsonPath('data.predictions.0.prediction_label', 'REAL');
     }

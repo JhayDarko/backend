@@ -2,6 +2,11 @@
 
 > **Contrasta. Evidencia. Decide.**
 
+[![CI](https://github.com/JhayDarko/backend/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JhayDarko/backend/actions/workflows/ci.yml)
+![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777BB4?logo=php&logoColor=white)
+![Node 24](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)
+![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+
 FactNode recibe una noticia (URL o texto pegado), extrae sus afirmaciones, las contrasta con
 verificadores de datos y búsquedas web, y devuelve un **informe explicable**: puntaje de
 credibilidad (0–100), veredicto, evaluación de veracidad en lenguaje natural y las fuentes
@@ -29,7 +34,7 @@ está construido**, **por qué se tomaron las decisiones** y **cuáles son sus l
 13. [Estructura del código](#13-estructura-del-código)
 14. [Configuración (variables de entorno)](#14-configuración-variables-de-entorno)
 15. [Instalación y ejecución](#15-instalación-y-ejecución)
-16. [Pruebas y CI](#16-pruebas-y-ci)
+16. [Calidad y CI](#16-calidad-y-ci)
 17. [Decisiones de diseño y alternativas descartadas](#17-decisiones-de-diseño-y-alternativas-descartadas)
 18. [Limitaciones conocidas y trabajo futuro](#18-limitaciones-conocidas-y-trabajo-futuro)
 19. [Preguntas frecuentes de sustentación](#19-preguntas-frecuentes-de-sustentación)
@@ -85,7 +90,7 @@ buscar manualmente cada dato.
 | Cuentas y API | **Laravel Sanctum** (tokens) + API keys propias | Sesiones de usuario para la app y claves con planes para la API pública |
 | Informes | **dompdf** | PDF y JSON descargables de cada análisis |
 | Pruebas | **PHPUnit 12**, SQLite en memoria | Rápidas y aisladas de servicios externos (`Http::fake`) |
-| CI | GitHub Actions (PHP 8.4) | Ejecuta `php artisan test` en cada push/PR |
+| CI | GitHub Actions (PHP 8.4, Node 24, Python 3.11) | Valida backend PostgreSQL, frontend, microservicios Python, OpenAPI y seguridad en cada push/PR |
 
 ---
 
@@ -191,10 +196,12 @@ sequenceDiagram
    - Texto: acepta JSON (`content`, `title`, `author_name`) o `Content-Type: text/plain`.
      Entre 30 y 65 000 caracteres.
    - Se crea/reutiliza el `Source` (dominio normalizado) y se **deduplica** el artículo por
-     `canonical_url` o `content_hash` (SHA-256).
+     `canonical_url` o `content_hash` (SHA-256), siempre dentro de la cuenta propietaria.
+     Nunca se reutiliza para otra cuenta un artículo creado por un usuario distinto.
 2. **Solicitud de análisis** (`ArticleAnalysisController@store`)
-   - Hay **un solo análisis por artículo** (índice único `analyses.article_id`). Si ya existe,
-     devuelve `200` con el existente; si no, crea uno `pending` y responde `202`.
+   - Hay **un análisis por artículo y usuario** (índice único
+     `analyses_article_user_unique`). Si ya existe para esa cuenta, devuelve `200` con el
+     existente; si no, crea uno `pending` y responde `202`.
 3. **`AnalyzeArticleJob`**: marca `processing`, registra `started_at` y encola
    `ExtractClaimsJob`.
 4. **`ExtractClaimsJob`**
@@ -210,7 +217,9 @@ sequenceDiagram
      (`60, 180, 600, 900 s`, 4 intentos).
 5. **Fase de evidencia (paralela)**
    - `ClassifyArticleJob`: llama al servicio BERT y guarda un `ModelPrediction`
-     (REAL/FAKE + confianza).
+     (REAL/FAKE + confianza). Si BERT no está disponible tras sus reintentos, queda
+     registrado en `analyses.metadata.classifier_unavailable` y la finalización continúa
+     con la señal de lenguaje neutral.
    - `VerifyClaimJob` → `FactCheckService`: consulta Google Fact Check con el claim exacto
      (≤180 caracteres) y, si no hay rating interpretable, con una **consulta compacta** de
      palabras clave (sin stop-words). Guarda cada `claimReview` con publicador, URL, fecha y
@@ -268,7 +277,7 @@ erDiagram
 |---|---|
 | `sources` | `domain` (único lógico), `name`, `type`, `reputation_score`, `country` |
 | `articles` | `source_id` (nullable para texto pegado), `url` (nullable), `canonical_url`, `title`, `content`, `content_hash`, `language`, `metadata` |
-| `analyses` | `article_id` **único**, `status` (`pending/processing/completed/failed`), `final_verdict`, `credibility_score`, `confidence_score`, `algorithm_version`, `started_at/completed_at`, `error`, `user_id` nullable |
+| `analyses` | `article_id` + `user_id` **únicos**, `status` (`pending/processing/completed/failed`), `final_verdict`, `credibility_score`, `confidence_score`, `algorithm_version`, `started_at/completed_at`, `error`, `metadata`, `user_id` nullable |
 | `claims` | `analysis_id`, `text`, `type`, `importance` (0–1), `verifiable`, `context`, `fingerprint`, `metadata` |
 | `claim_verifications` | `claim_id`, `relation` (`external_fact_check` o `search_evidence`), `provider`, `status` (`matched/no_match`), `raw_rating`, `normalized_rating`, `publisher`, `fact_check_url`, `fingerprint` **único** |
 | `evidences` | `url` **único**, `title`, `snippet`, `published_at`, `metadata` (`domain`, `provider`, `trusted`) |
@@ -463,7 +472,7 @@ Base: `http://127.0.0.1:8000/api/v1` · JSON · `Accept: application/json`
 | `POST /auth/register` | Crea cuenta (contraseña ≥ 8 con letras y números) y devuelve `token` | 10/min |
 | `POST /auth/login` | Inicia sesión y devuelve `token` | 10/min |
 | `GET /auth/me` · `POST /auth/logout` | Usuario actual · revoca el token | — |
-| `POST /articles/ocr` | Sube la captura; PaddleOCR extrae texto y Gemini organiza solo el OCR antes de crear el artículo. El análisis excluye perfil/interfaz y conserva sus textos en metadatos | 10/min |
+| `POST /articles/ocr` | Sube la captura; PaddleOCR extrae texto y Gemini organiza solo el OCR antes de crear el artículo. El análisis excluye perfil/interfaz y conserva sus textos en metadatos; errores de proveedor `ocr_unavailable`/`gemini_unavailable` (`503`) | 10/min |
 | `GET /analyses/{id}/report/pdf` · `/report/json` | Informe descargable (solo análisis completados; `409` si no) | 20–30/min |
 | `GET /sources` · `GET /sources/{id}/profile` | Credibilidad histórica de los medios según los análisis del sistema | 60/min |
 | `GET/POST/DELETE /api-keys` | Gestión de API keys y consumo de 30 días | — |
@@ -482,6 +491,8 @@ Base: `http://127.0.0.1:8000/api/v1` · JSON · `Accept: application/json`
 Informe (`GET /analyses/{id}`) incluye en `score`: `summary`, `truth_assessment`,
 `verdict_rationale`, `evidence_coverage`, `fact_check_coverage` y `claim_evaluations`
 (postura, conclusión, razonamiento, peso, `is_central`, `unverifiable_reason`, evidencias).
+También expone `language_signal_available`; si es `false`, el scoring conservó su fallback
+neutro porque no hubo predicción del clasificador BERT.
 
 Respuestas con `JSON_UNESCAPED_UNICODE` (middleware `UnescapeJsonUnicode`) para conservar
 tildes y ñ. Paginación por páginas (por defecto) o **por cursor** (`next_cursor`) para
@@ -504,6 +515,8 @@ Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación O
 - **Planes** (`config/plans.php`): gratuito 10 req/min y 10 análisis/día; Pro 60 req/min y 300 análisis/día.
   Se cambia con `php artisan apikeys:plan {id} pro`.
 - Respuestas `429` con `Retry-After`; cabeceras `X-RateLimit-Limit/Remaining`.
+- Los errores de ingesta devuelven `{code, message}`: `422` para `invalid_input`, `url_blocked`,
+  `fetch_failed` o `content_not_extractable`; `500 internal_error` para fallos inesperados.
 - **Métricas:** tabla `api_usages` (solicitudes, análisis y errores por clave y día), visibles en la app (sección API).
 - Los análisis creados con una clave pertenecen al usuario dueño de la clave.
 
@@ -554,7 +567,8 @@ Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación O
 app/
   Contracts/                 Interfaces de proveedores
   DTO/                       Objetos de transferencia (Scoring, Search, Source, Analyst)
-  Exceptions/                AiProviderException (códigos 402/429...)
+  Exceptions/                AiProviderException, ArticleInputException,
+                              IngestionProviderUnavailableException
   Http/
     Controllers/Api/         Auth, Article, ArticleAnalysis, Analysis, Ocr, Report, Source, ApiKey, PublicAnalysis
     Requests/                Validación (StoreArticleRequest, StoreOcrRequest, ...)
@@ -660,6 +674,23 @@ composer dev
 crea `.env` si falta, instala dependencias, levanta Docker esperando a que esté saludable,
 migra y arranca la API, los workers y el frontend Angular.
 
+Los servicios Python usan Python 3.11. Sus dependencias de ejecución están fijadas en
+`ml_service/requirements.txt` y `ocr_service/requirements.txt`; las pruebas y Ruff usan los
+locks más pequeños `requirements-test.txt` de cada servicio. Para regenerarlos con `uv 0.13.5`,
+desde la raíz del repositorio:
+
+```bash
+python -m pip install uv==0.13.5
+uv pip compile --generate-hashes --emit-index-url --index-strategy unsafe-best-match --output-file ml_service/requirements.txt ml_service/requirements.in
+uv pip compile --generate-hashes --output-file ml_service/requirements-test.txt ml_service/requirements-test.in
+uv pip compile --generate-hashes --output-file ocr_service/requirements.txt ocr_service/requirements.in
+uv pip compile --generate-hashes --output-file ocr_service/requirements-test.txt ocr_service/requirements-test.in
+```
+
+El lock de ML combina el índice CPU de PyTorch con PyPI; `unsafe-best-match` es necesario
+para resolver el pin `torch==2.14.1+cpu`. Revisa y versiona juntos los archivos `.in` y sus
+locks. Los `Dockerfile` instalan las dependencias de ejecución con `--require-hashes`.
+
 El repositorio incluye configuración de contenedores para desarrollo local y CI; no incluye
 aprovisionamiento ni despliegue de producción.
 
@@ -684,21 +715,125 @@ del modelo y puede equivocarse.
 
 ---
 
-## 16. Pruebas y CI
+## 16. Calidad y CI
+
+El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) se ejecuta en cada
+push y pull request. Sus jobs se ejecutan en paralelo:
+
+| Job | Qué valida |
+|---|---|
+| `backend` | PHP 8.4, PostgreSQL 16 y Redis 7; Pint, Larastan nivel 5, ciclo de migraciones y PHPUnit/JUnit |
+| `frontend` | Node 24; instalación reproducible con `npm ci`, ESLint, TypeScript estricto, build de producción y Vitest |
+| `python` | Matriz ML/OCR en Python 3.11; instalación con hashes, Ruff y pytest sin descargar modelos ni requerir GPU |
+| `openapi` | Lint del contrato con Redocly CLI 2.67.1; el test de backend comprueba también la cobertura de rutas |
+| `security` | Composer, npm y pip-audit; Gitleaks sobre el árbol actual y Trivy filesystem para dependencias y configuración |
+
+El workflow tiene concurrencia cancelable, límites de tiempo por job y permisos de solo
+lectura para contenidos. No contiene tareas de despliegue. PHPUnit usa SQLite en memoria
+por defecto localmente; en CI se ejecuta contra PostgreSQL real, incluido `migrate`,
+`rollback` y `migrate:fresh`. Los tests emplean HTTP fakes y mocks: no llaman a Gemini,
+OpenAI, Tavily, Brave ni descargan pesos de modelos.
+
+### Comandos locales
+
+Desde la raíz, las comprobaciones PHP se ejecutan con:
 
 ```bash
-php artisan test
+composer test
+composer analyse
+php vendor/bin/pint --test
+composer ci
 ```
 
-- ~150 pruebas de backend (SQLite en memoria, `RefreshDatabase`); proveedores externos simulados con
-  `Http::fake` e interfaces falsas. Una prueba de integración real con Gemini es opcional y se
-  omite sin llave. Frontend: `npm --prefix frontend test` (Vitest).
-- Cubren: contratos de la API, **autenticación y propiedad por usuario**, **OCR**, **informes PDF/JSON**,
-  **API pública (claves, planes, cuotas)**, perfil de fuentes, jobs, extracción y normalización de claims,
-  proveedores (Gemini, OpenAI, BERT, Google Fact Check, Tavily/Brave), fallbacks, circuit breaker,
-  política de dominios, puntaje (ponderación, abstención, centralidad) y pipeline completo.
-- **CI** (`.github/workflows/ci.yml`) en cada push/PR: estilo (Pint), migraciones sobre **PostgreSQL**, suite de
-  tests, `composer audit`, build y tests de Angular.
+`composer ci` agrupa tests, análisis estático y Pint. Para el frontend:
+
+```bash
+npm --prefix frontend ci --legacy-peer-deps --no-audit --no-fund
+npm --prefix frontend run lint
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+npm --prefix frontend test -- --watch=false
+npm --prefix frontend audit --audit-level=high
+```
+
+`composer ci` usa la configuración local de PHPUnit (SQLite en memoria). Para reproducir
+el job de PostgreSQL, levanta `postgres` y `redis` con Docker Compose y configura las
+variables `DB_*` para una base **desechable de pruebas**. Sobre esa base se puede ejecutar
+el mismo ciclo que en CI:
+
+```bash
+php artisan migrate --force
+php artisan migrate:rollback --step=2 --force
+php artisan migrate --force
+php artisan migrate:fresh --force
+mkdir -p reports
+php vendor/bin/phpunit --log-junit reports/phpunit.xml
+```
+
+`migrate:fresh` elimina todas las tablas de la base configurada; nunca ejecutes este bloque
+contra una base con datos que debas conservar.
+
+Para cada servicio Python (`ml_service` y `ocr_service`), ejecuta desde su carpeta:
+
+```bash
+python -m pip install --require-hashes -r requirements-test.txt
+ruff check .
+ruff format --check .
+python -m pytest -q
+```
+
+El contrato OpenAPI se valida desde la raíz con:
+
+```bash
+npx --yes @redocly/cli@2.67.1 lint public/api-docs/openapi.yaml
+```
+
+Para las auditorías locales instala `pip-audit` y ejecuta Composer y npm así:
+
+```bash
+composer audit --locked
+npm --prefix frontend audit --audit-level=high
+python -m pip install pip-audit==2.10.1
+```
+
+Después reproduce los cuatro comandos `pip-audit` del paso `Audit Python dependencies`
+en [`.github/workflows/ci.yml`](.github/workflows/ci.yml); los comandos ML incluyen las
+excepciones temporales `--ignore-vuln`. Con Docker instalado, los escaneos equivalentes
+de Gitleaks y Trivy son:
+
+```bash
+docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+  ghcr.io/gitleaks/gitleaks:v8.30.1 detect --source=/workspace --no-git \
+  --config=/workspace/gitleaks.toml --redact --exit-code=1
+
+docker run --rm --volume "$PWD:/workspace:ro" \
+  aquasec/trivy:0.76.1 fs --scanners vuln,misconfig --severity HIGH,CRITICAL \
+  --ignorefile /workspace/.trivyignore --exit-code 1 /workspace
+```
+
+Los IDs ignorados temporalmente de Transformers y los hallazgos históricos de
+credenciales están documentados en [`SECURITY-EXCEPTIONS.md`](SECURITY-EXCEPTIONS.md).
+Gitleaks en CI escanea el árbol de archivos actual, no el historial Git completo.
+
+### Actualizar locks y baseline de Larastan
+
+Para cambiar dependencias Python, edita primero el `.in` correspondiente y regenera
+juntos sus locks con `uv 0.13.5` usando los cuatro comandos indicados en
+[Instalación y ejecución](#15-instalación-y-ejecución). Conserva los hashes y revisa
+los resultados de `pip-audit` antes de aceptar la actualización.
+
+El nivel de Larastan/PHPStan se configura en [`phpstan.neon`](phpstan.neon) y las
+incidencias existentes están en [`phpstan-baseline.neon`](phpstan-baseline.neon). Para
+revisar nuevos problemas sin sobrescribir el baseline vigente:
+
+```bash
+php vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=1G --no-progress
+php vendor/bin/phpstan analyse --configuration=phpstan.neon --generate-baseline=phpstan-baseline.new.neon
+```
+
+Inspecciona el baseline nuevo y traslada únicamente los errores aceptados a
+`phpstan-baseline.neon`; no reemplaces el baseline existente sin revisar el diff. Luego
+ejecuta `composer analyse` para confirmar que CI no recibe errores nuevos.
 
 ---
 
@@ -829,8 +964,8 @@ Corpus etiquetado y métricas, autenticación, SPA, resolución DNS segura, moni
 colas y reducir la latencia de la síntesis.
 
 **¿Qué pasa si dos usuarios envían la misma noticia?**
-El artículo se deduplica (URL canónica o hash) y solo existe un análisis por artículo; el
-segundo recibe el análisis existente.
+La noticia se deduplica por URL canónica o hash dentro de cada cuenta. El mismo usuario
+reutiliza su artículo y su análisis; otra cuenta obtiene un artículo y un análisis propios.
 
 **¿Cómo se versiona el algoritmo?**
 `algorithm_version` (actualmente 1.2.0) se guarda en cada `Score` y análisis, y

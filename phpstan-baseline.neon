@@ -1,0 +1,1015 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int\<0, max\>, name\: string, prefix\: string, plan\: string, limits\: array, last_used_at\: string\|null, created_at\: Carbon\\Carbon\|null, usage_30d\: array\{requests\: int, analyses\: int, errors\: int\}, daily\: Illuminate\\Support\\Collection\<int, array\{date\: mixed, requests\: mixed, analyses\: mixed\}\>\}, Closure\(App\\Models\\ApiKey\)\: array\{id\: int\<0, max\>, name\: string, prefix\: string, plan\: string, limits\: array, last_used_at\: string\|null, created_at\: Carbon\\Carbon\|null, usage_30d\: array\{requests\: int, analyses\: int, errors\: int\}, daily\: Illuminate\\Support\\Collection\<int, array\{date\: mixed, requests\: mixed, analyses\: mixed\}\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/ApiKeyController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Laravel\\Sanctum\\PersonalAccessToken\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Api/AuthController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$analyses\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/PublicAnalysisController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$errors\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/PublicAnalysisController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$requests\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/PublicAnalysisController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>analyses" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Api/PublicAnalysisController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>errors" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Api/PublicAnalysisController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>requests" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Api/PublicAnalysisController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Api\\ReportController\:\:json\(\) never returns Illuminate\\Http\\Response so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Http/Controllers/Api/ReportController.php
+
+		-
+			message: '#^Parameter \#1 \$user of static method Illuminate\\Support\\Facades\\Auth\:\:setUser\(\) expects Illuminate\\Contracts\\Auth\\Authenticatable, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Middleware/AuthenticateApiKey.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$algorithm_version\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$article_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$completed_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$confidence_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$credibility_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$error\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$final_verdict\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$started_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisResource\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$article_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$completed_at\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$confidence_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$credibility_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$error\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$final_verdict\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$started_at\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\AnalysisStatusResource\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Http\\Resources\\AnalysisStatusResource\:\:claims\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Http\\Resources\\AnalysisStatusResource\:\:predictions\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Call to an undefined method App\\Http\\Resources\\AnalysisStatusResource\:\:score\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Resources/AnalysisStatusResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$author_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$canonical_url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$description\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$language\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$published_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ArticleResource\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ArticleResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$context\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$fingerprint\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$importance\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$metadata\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$text\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimResource\:\:\$verifiable\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$confidence\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$explanation\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$fact_check_title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$fact_check_url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$metadata\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$normalized_rating\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$provider\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$publisher\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$publisher_site\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$query_used\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$raw_rating\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$relation\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$relevance_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$review_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ClaimVerificationResource\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ClaimVerificationResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$metadata\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$published_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$snippet\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\EvidenceResource\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/EvidenceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$algorithm_version\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$confidence_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$metadata\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$model_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$model_provider\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$prediction_label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ModelPredictionResource\:\:\$probability\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ModelPredictionResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$algorithm_version\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$consistency_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$corroboration_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$evidence_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$final_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$independence_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$language_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$metadata\.$#'
+			identifier: property.notFound
+			count: 13
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$source_quality_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\ScoreResource\:\:\$transparency_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/ScoreResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\SourceResource\:\:\$domain\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/SourceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\SourceResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/SourceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\SourceResource\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/SourceResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\SourceResource\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/SourceResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Jobs/ClassifyArticleJob.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Jobs/ExtractClaimsJob.php
+
+		-
+			message: '#^Parameter \#1 \$article of method App\\Services\\Verification\\ClaimExtractionService\:\:extract\(\) expects App\\Models\\Article, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Jobs/ExtractClaimsJob.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/FinalizeAnalysisJob.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$source\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/FinalizeAnalysisJob.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/FinalizeAnalysisJob.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$normalized_rating\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/VerifyClaimJob.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$raw_rating\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/VerifyClaimJob.php
+
+		-
+			message: '#^Offset ''results'' on array\<int, array\<string, mixed\>\> on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Jobs/VerifyClaimJob.php
+
+		-
+			message: '#^Offset ''status'' on array\<int, array\<string, mixed\>\> on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Jobs/VerifyClaimJob.php
+
+		-
+			message: '#^Method App\\Models\\ApiKey\:\:issue\(\) should return array\{static\(App\\Models\\ApiKey\), string\} but returns array\{App\\Models\\ApiKey, non\-falsy\-string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/ApiKey.php
+
+		-
+			message: '#^Offset ''claims'' on array\{summary\: string, claims\: array\<array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\}\>, entities\: array\<array\{name\: string, type\: string\}\>, sources\: array\<array\{name\: string, url\?\: string\}\>, red_flags\: array\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/AI/DTO/ExtractedClaimsResponse.php
+
+		-
+			message: '#^Offset ''entities'' on array\{summary\: string, claims\: array\<array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\}\>, entities\: array\<array\{name\: string, type\: string\}\>, sources\: array\<array\{name\: string, url\?\: string\}\>, red_flags\: array\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/AI/DTO/ExtractedClaimsResponse.php
+
+		-
+			message: '#^Offset ''red_flags'' on array\{summary\: string, claims\: array\<array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\}\>, entities\: array\<array\{name\: string, type\: string\}\>, sources\: array\<array\{name\: string, url\?\: string\}\>, red_flags\: array\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/AI/DTO/ExtractedClaimsResponse.php
+
+		-
+			message: '#^Offset ''sources'' on array\{summary\: string, claims\: array\<array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\}\>, entities\: array\<array\{name\: string, type\: string\}\>, sources\: array\<array\{name\: string, url\?\: string\}\>, red_flags\: array\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/AI/DTO/ExtractedClaimsResponse.php
+
+		-
+			message: '#^Offset ''summary'' on array\{summary\: string, claims\: array\<array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\}\>, entities\: array\<array\{name\: string, type\: string\}\>, sources\: array\<array\{name\: string, url\?\: string\}\>, red_flags\: array\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/AI/DTO/ExtractedClaimsResponse.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$source\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/AI/GeminiAnalystService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/AI/GeminiAnalystService.php
+
+		-
+			message: '#^Parameter \$article of method App\\Contracts\\Analyst\\AnalystProviderInterface\:\:synthesize\(\) expects App\\Models\\Article, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AI/GeminiAnalystService.php
+
+		-
+			message: '#^Parameter \$prediction of method App\\Contracts\\Analyst\\AnalystProviderInterface\:\:synthesize\(\) expects App\\Models\\ModelPrediction\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AI/GeminiAnalystService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\:\:\$author\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/AI/Providers/GeminiAnalystProvider.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Article\:\:\$text\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/AI/Providers/GeminiAnalystProvider.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{title\: string\|null, url\: string, snippet\: string, domain\: mixed, provider\: mixed, trusted_source\: bool\}, Closure\(App\\Models\\Evidence\)\: array\{title\: string\|null, url\: string, snippet\: string, domain\: mixed, provider\: mixed, trusted_source\: bool\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AI/Providers/GeminiAnalystProvider.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:reject\(\) expects bool\|\(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model, Closure\(App\\Models\\Evidence\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AI/Providers/GeminiAnalystProvider.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:sortBy\(\) expects array\<array\{string, ''asc''\|''desc''\|SortDirection\}\|\(callable\(Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Model\)\: mixed\)\|\(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: mixed\)\|string\>\|\(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: mixed\)\|int\|string, Closure\(App\\Models\\Evidence\)\: \(0\|1\) given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AI/Providers/GeminiAnalystProvider.php
+
+		-
+			message: '#^Static method App\\Exceptions\\AiProviderException\:\:connection\(\) invoked with 3 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: app/Services/AI/Providers/GeminiAnalystProvider.php
+
+		-
+			message: '#^Method App\\Services\\AI\\Providers\\GeminiProvider\:\:maskUrl\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Services/AI/Providers/GeminiProvider.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between null and null will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
+			count: 1
+			path: app/Services/AI/Providers/GeminiProvider.php
+
+		-
+			message: '#^Call to an undefined method App\\Services\\FactCheck\\FactCheckService\:\:buildQuery\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/FactCheck/FactCheckService.php
+
+		-
+			message: '#^Method App\\Services\\FactCheck\\FactCheckService\:\:verifyClaim\(\) should return array\<int, array\<string, mixed\>\> but returns array\<string, list\<array\>\|string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/FactCheck/FactCheckService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$author_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$metadata\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$published_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$source\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>metadata" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Report/AnalysisReportBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$url\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$claims$#'
+			identifier: parameter.notFound
+			count: 2
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$evidences$#'
+			identifier: parameter.notFound
+			count: 3
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$verifications$#'
+			identifier: parameter.notFound
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Parameter \#1 \$article of method App\\Services\\Scoring\\CredibilityScoreService\:\:calculateTransparencyScore\(\) expects App\\Models\\Article\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{title\: string\|null, url\: string, snippet\: string\|null, domain\: mixed\}, Closure\(App\\Models\\Evidence\)\: array\{title\: string\|null, url\: string, snippet\: string\|null, domain\: mixed\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Parameter \#1 \$claims of method App\\Services\\Scoring\\CredibilityScoreService\:\:buildClaimAssessments\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Claim\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Parameter \#1 \$prediction of method App\\Services\\Scoring\\CredibilityScoreService\:\:calculateLanguageScore\(\) expects App\\Models\\ModelPrediction\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Parameter \#2 \$claims of method App\\Services\\Scoring\\CredibilityScoreService\:\:calculateTransparencyScore\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Claim\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>biasIndicators" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>claimEvaluations" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>fallaciesAndRedFlags" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>keyFindings" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>reasoning" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>stance" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>summary" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Scoring/CredibilityScoreService.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Search/EvidenceSearchService.php
+
+		-
+			message: '#^Instanceof between array\<string, mixed\> and App\\DTO\\Search\\SearchResult will always evaluate to false\.$#'
+			identifier: instanceof.alwaysFalse
+			count: 1
+			path: app/Services/Search/EvidenceSearchService.php
+
+		-
+			message: '#^Return type \(array\<int, App\\DTO\\Search\\SearchResult\>\) of method App\\Services\\Search\\SearchProviderManager\:\:search\(\) should be compatible with return type \(array\<int, array\<string, mixed\>\>\) of method App\\Contracts\\Search\\SearchProviderInterface\:\:search\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: app/Services/Search/SearchProviderManager.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Source\:\:\$analyses_count\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Source/SourceProfileService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Source\:\:\$avg_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Source/SourceProfileService.php
+
+		-
+			message: '#^Instanceof between App\\Services\\AI\\Providers\\FallbackAiProvider\|App\\Services\\AI\\Providers\\GeminiProvider and App\\Contracts\\AiProviderInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^Offset ''context'' on array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^Offset ''importance'' on array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^Offset ''text'' on array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^Offset ''type'' on array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^Offset ''verifiable'' on array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$claims$#'
+			identifier: parameter.notFound
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
+			message: '#^Property App\\Services\\AI\\DTO\\ExtractedClaimsResponse\:\:\$summary \(string\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php

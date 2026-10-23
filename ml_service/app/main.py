@@ -1,30 +1,21 @@
+import logging
 import os
-from typing import Any, Optional
+from collections.abc import Callable
+from contextlib import asynccontextmanager
+from typing import Any
 
-import torch
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from transformers import pipeline
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field
 
 MODEL_NAME = os.getenv("BERT_MODEL_NAME", "Juanillaberia/spanish-fake-news-classifier")
-MODEL_DEVICE = 0 if torch.cuda.is_available() else -1
-
-app = FastAPI(title="BERT Fake News Classifier", version="1.0.0")
-
-classifier = pipeline(
-    "text-classification",
-    model=MODEL_NAME,
-    tokenizer=MODEL_NAME,
-    device=MODEL_DEVICE,
-    top_k=None,
-)
+logger = logging.getLogger(__name__)
 
 
 class ClassificationRequest(BaseModel):
-    title: str = ""
-    content: str = ""
-    description: str = ""
-    model: Optional[str] = None
+    title: str = Field(default="", max_length=255)
+    content: str = Field(default="", max_length=65_000)
+    description: str = Field(default="", max_length=65_000)
+    model: str | None = Field(default=None, max_length=255)
 
 
 class ClassificationResponse(BaseModel):
@@ -76,32 +67,68 @@ def extract_prediction(payload: Any) -> tuple[str, float]:
     raise ValueError("Unexpected model response format")
 
 
-@app.get("/health")
-def health() -> dict[str, Any]:
-    return {"status": "ok", "model": MODEL_NAME}
+def load_classifier() -> Callable[..., Any]:
+    import torch
+    from transformers import pipeline
+
+    model_device = 0 if torch.cuda.is_available() else -1
+
+    return pipeline(
+        "text-classification",
+        model=MODEL_NAME,
+        tokenizer=MODEL_NAME,
+        device=model_device,
+        top_k=None,
+    )
 
 
-@app.post("/classify", response_model=ClassificationResponse)
-def classify(request: ClassificationRequest) -> ClassificationResponse:
-    text = " ".join(part for part in [request.title, request.description, request.content] if part).strip()
+def create_app(classifier_loader: Callable[[], Callable[..., Any]] = load_classifier) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        application.state.classifier = classifier_loader()
+        yield
 
-    if not text:
-        raise HTTPException(status_code=400, detail="Text payload is empty.")
+    application = FastAPI(
+        title="BERT Fake News Classifier",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
 
-    try:
-        result = classifier(text, truncation=True, max_length=512)
-        label, confidence = extract_prediction(result)
-        model_name = request.model or MODEL_NAME
-        return ClassificationResponse(
-            label=label,
-            confidence=float(confidence),
-            probability=float(confidence),
-            model=model_name,
+    @application.get("/health")
+    def health() -> dict[str, Any]:
+        return {"status": "ok", "model": MODEL_NAME}
+
+    @application.post("/classify", response_model=ClassificationResponse)
+    def classify(
+        request: ClassificationRequest,
+        app_request: Request,
+    ) -> ClassificationResponse:
+        text = " ".join(
+            part for part in [request.title, request.description, request.content] if part
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"Classification failed: {exc}") from exc
+        if not text:
+            raise HTTPException(status_code=400, detail="Text payload is empty.")
+
+        try:
+            result = app_request.app.state.classifier(text, truncation=True, max_length=512)
+            label, confidence = extract_prediction(result)
+            model_name = request.model or MODEL_NAME
+            return ClassificationResponse(
+                label=label,
+                confidence=float(confidence),
+                probability=float(confidence),
+                model=model_name,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("Classification failed")
+            raise HTTPException(status_code=500, detail="Classification failed.") from exc
+
+    return application
+
+
+app = create_app()
 
 
 if __name__ == "__main__":
