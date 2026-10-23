@@ -5,6 +5,7 @@ namespace App\Services\AI\Providers;
 use App\Contracts\ClassifierProviderInterface;
 use App\Exceptions\AiProviderException;
 use App\Services\AI\DTO\ClassificationResult;
+use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -55,6 +56,10 @@ final class BertFakeNewsProvider implements ClassifierProviderInterface
 
         if (! is_array($data)) {
             throw AiProviderException::invalidResponse('Classification response is not a valid JSON object.');
+        }
+        if (config('evaluation.active')) {
+            $data['response_headers'] = app(EvaluationSnapshotSanitizer::class)
+                ->rateLimitHeaders($response->headers());
         }
 
         $label = strtoupper(trim((string) ($data['label'] ?? $data['prediction'] ?? '')));

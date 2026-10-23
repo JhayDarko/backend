@@ -4,6 +4,7 @@ namespace App\Services\FactCheck;
 
 use App\Contracts\FactCheck\FactCheckProviderInterface;
 use App\Exceptions\AiProviderException;
+use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -133,6 +134,9 @@ final class GoogleFactCheckProvider implements FactCheckProviderInterface
                     'metadata' => [
                         'claim' => $claim,
                         'review' => $review,
+                        'response_headers' => config('evaluation.active')
+                            ? app(EvaluationSnapshotSanitizer::class)->rateLimitHeaders($response->headers())
+                            : [],
                     ],
                 ];
             }

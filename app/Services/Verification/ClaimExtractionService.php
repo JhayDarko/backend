@@ -291,6 +291,7 @@ PROMPT;
             sources: $sources,
             redFlags: $redFlags,
             promptVersion: $promptVersion,
+            providerMetadata: $response->rawData,
         );
     }
 
