@@ -6,6 +6,7 @@ use App\Contracts\FactCheck\FactCheckProviderInterface;
 use App\Models\Claim;
 use App\Models\ClaimVerification;
 use App\Models\Evidence;
+use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use Illuminate\Support\Str;
 
 class FactCheckService
@@ -15,10 +16,14 @@ class FactCheckService
     ) {}
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array{status: string, results: array<int, array<string, mixed>>}
      */
     public function verifyClaim(Claim $claim): array
     {
+        if (config('evaluation.active') && config('evaluation.no_factcheck')) {
+            return ['status' => 'disabled', 'results' => []];
+        }
+
         $queries = $this->buildQueries($claim);
         $persisted = [];
 
@@ -27,6 +32,16 @@ class FactCheckService
             $hasUsableRating = false;
 
             foreach ($results as $result) {
+                if (config('evaluation.active')) {
+                    $result = app(EvaluationSnapshotSanitizer::class)->sanitize($result);
+                }
+
+                if (config('evaluation.active')
+                    && config('evaluation.mode') === 'blind'
+                    && $this->isExcludedResult($result)) {
+                    continue;
+                }
+
                 $persisted[] = $this->persistResult($claim, $result);
                 $normalizedRating = strtolower((string) ($result['normalized_rating'] ?? 'unknown'));
                 if ($normalizedRating === '' || $normalizedRating === 'unknown') {
@@ -48,6 +63,36 @@ class FactCheckService
             'status' => $persisted === [] ? 'no_match' : 'matched',
             'results' => $persisted,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function isExcludedResult(array $result): bool
+    {
+        $domains = array_values(array_filter(
+            array_map(fn (mixed $domain): string => strtolower(trim((string) $domain)), (array) config('evaluation.excluded_domains', [])),
+            fn (string $domain): bool => $domain !== '',
+        ));
+        $publisherSite = trim((string) ($result['publisher_site'] ?? ''));
+        $publisherHost = parse_url($publisherSite, PHP_URL_HOST);
+        if (! is_string($publisherHost) && $publisherSite !== '') {
+            $publisherHost = parse_url('//'.$publisherSite, PHP_URL_HOST);
+        }
+        $hosts = [
+            strtolower(is_string($publisherHost) ? $publisherHost : ''),
+            strtolower((string) parse_url((string) ($result['fact_check_url'] ?? ''), PHP_URL_HOST)),
+        ];
+
+        foreach ($hosts as $host) {
+            foreach ($domains as $domain) {
+                if ($host !== '' && ($host === $domain || str_ends_with($host, '.'.$domain))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** @return array<int, string> */

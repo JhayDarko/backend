@@ -21,7 +21,13 @@ final class SourceDomainPolicy
      */
     public function blockedDomains(): array
     {
-        return array_values(array_filter((array) config('search.blocked_domains', []), 'is_string'));
+        $blocked = array_values(array_filter((array) config('search.blocked_domains', []), 'is_string'));
+
+        if (config('evaluation.active') && config('evaluation.mode') === 'blind') {
+            $blocked = array_merge($blocked, $this->excludedDomains());
+        }
+
+        return array_values(array_unique($blocked));
     }
 
     public function isBlocked(string $urlOrHost): bool
@@ -104,5 +110,23 @@ final class SourceDomainPolicy
         }
 
         return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function excludedDomains(): array
+    {
+        return array_values(array_filter(
+            array_map(fn (mixed $domain): string => strtolower(trim((string) $domain)), (array) config('evaluation.excluded_domains', [])),
+            fn (string $domain): bool => $domain !== '',
+        ));
+    }
+
+    public function isExcluded(string $urlOrHost): bool
+    {
+        $host = $this->host($urlOrHost);
+
+        return $host !== '' && $this->matches($host, $this->excludedDomains());
     }
 }

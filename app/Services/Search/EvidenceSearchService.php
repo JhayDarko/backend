@@ -7,6 +7,7 @@ use App\DTO\Search\SearchResult;
 use App\Models\Claim;
 use App\Models\ClaimVerification;
 use App\Models\Evidence;
+use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 
 final class EvidenceSearchService
 {
@@ -80,6 +81,14 @@ final class EvidenceSearchService
                     'metadata' => $result['metadata'] ?? $result,
                 ];
             }
+        }
+
+        if (config('evaluation.active')) {
+            $sanitizer = app(EvaluationSnapshotSanitizer::class);
+            $normalized = array_map(
+                fn (array $result): array => $sanitizer->sanitize($result),
+                $normalized,
+            );
         }
 
         $credible = $this->domainPolicy->filterAndRank($this->deduplicateResults($normalized));

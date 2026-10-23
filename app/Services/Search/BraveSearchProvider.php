@@ -4,6 +4,7 @@ namespace App\Services\Search;
 
 use App\Contracts\Search\SearchProviderInterface;
 use App\Exceptions\AiProviderException;
+use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
@@ -111,7 +112,9 @@ final class BraveSearchProvider implements SearchProviderInterface
                 'source_name' => Arr::get($result, 'source', Arr::get($result, 'site')),
                 'relevance' => Arr::get($result, 'score', Arr::get($result, 'relevance')),
                 'provider' => $this->getName(),
-                'metadata' => $result,
+                'metadata' => $result + ['response_headers' => config('evaluation.active')
+                    ? app(EvaluationSnapshotSanitizer::class)->rateLimitHeaders($response->headers())
+                    : []],
             ];
         }
 

@@ -61,8 +61,8 @@ class VerifyClaimJob implements ShouldQueue
 
             Log::info('Claim verification completed', [
                 'claim_id' => $claim->id,
-                'status' => $result['status'] ?? 'unknown',
-                'count' => count($result['results'] ?? []),
+                'status' => $result['status'],
+                'count' => count($result['results']),
             ]);
         } catch (Throwable $exception) {
             Log::error('VerifyClaimJob failed', [
