@@ -43,7 +43,7 @@ php artisan eval:validate --dataset=evaluation/dataset/cases.jsonl
 
 ## Asignar splits
 
-`eval:split` asigna cada grupo completo a `dev` o `test`, estratificando por la clase (o composición de clases) del grupo. Usa `claim_group`; si falta, trata cada `id` como grupo independiente. La semilla y proporción de test se toman de `dataset/splits.json` (`20261022` y `0.2` por defecto). El comando actualiza el `split` de los casos y guarda asignaciones y distribución en ese mismo manifiesto:
+`eval:split` asigna cada grupo completo a `dev` o `test`, estratificando por la clase (o composición de clases) del grupo. Usa `claim_group`; si falta, trata cada `id` como grupo independiente. La semilla y proporción de test se toman de `dataset/splits.json` (`20261022` y `0.3` por defecto). El comando actualiza el `split` de los casos y guarda asignaciones y distribución en ese mismo manifiesto:
 
 ```powershell
 php artisan eval:split
@@ -52,7 +52,7 @@ php artisan eval:split
 Se pueden indicar rutas de trabajo y parámetros reproducibles explícitos:
 
 ```powershell
-php artisan eval:split --dataset=tests/Fixtures/Evaluation/split_cases.jsonl --splits-file=evaluation/dataset/splits.json --seed=20261022 --test-ratio=0.2
+php artisan eval:split --dataset=tests/Fixtures/Evaluation/split_cases.jsonl --splits-file=evaluation/dataset/splits.json --seed=20261022 --test-ratio=0.3
 ```
 
 Los ejemplos se excluyen y conservan su split original salvo que se use `--include-examples`. Los mínimos por split/clase generan advertencias; `--strict` devuelve fallo y no escribe cambios si no se alcanzan. Las pruebas de este comando solo usan fixtures. Antes de aplicarlo al dataset real, revisa la propuesta y confirma que los grupos y etiquetas están listos.
@@ -67,6 +67,20 @@ Los ejemplos se excluyen y conservan su split original salvo que se use `--inclu
 
 No incluyas secretos, texto íntegro de artículos ni capturas en fuentes versionadas. `url` y `label_sources[].url` identifican las fuentes, no sustituyen el resumen propio ni la justificación.
 
+## Recolectar observaciones (E2)
+
+`eval:collect` escribe los artefactos en `evaluation/runs/<run-id>/<mode>/`. Una ejecución real requiere una base separada; el comando falla antes de migrar o escribir si faltan los ajustes explícitos de `EVAL_DB_*` o si el host y nombre de base coinciden con la conexión predeterminada. Para SQLite, indica explícitamente `EVAL_DB_CONNECTION=sqlite` y una ruta de archivo distinta de la base normal. Para PostgreSQL/MySQL, configura explícitamente `EVAL_DB_CONNECTION`, `EVAL_DB_HOST`, `EVAL_DB_PORT`, `EVAL_DB_DATABASE`, `EVAL_DB_USERNAME` y `EVAL_DB_PASSWORD`.
+
+La vista previa del piloto no conecta a la base ni llama a proveedores:
+
+```powershell
+php artisan eval:collect --dry-run --mode=production --run-id=pilot-dry-run
+```
+
+El default es `production`; ese modo no aplica exclusiones del caso. `--mode=blind` aplica `excluded_domains` a la búsqueda web y filtra Fact Check por publicador y host. `--no-factcheck` desactiva únicamente Google Fact Check y puede combinarse con cualquiera de los modos. Manifiestos e instantáneas incluyen modo y flags; no incluyen `expected_verdict`. El worker corre en un proceso hijo con cola `database` y cache propio de evaluación. `--case-timeout` limita cada caso; `--drain-timeout` limita el drenaje de jobs/batches en ciclos. Los fallos y jobs agotados se registran, sin detener los casos siguientes.
+
+No lances una corrida real sin autorización explícita. La vista previa puede indicar llamadas estimadas, pero el costo sigue pendiente hasta disponer de precios verificados en `pricing.json`.
+
 ## Estado de las fases
 
-La fase E1 establece esquema, guía, ejemplos y validación. La recolección aislada, el scoring offline, las métricas, la disciplina de test y el smoke test de CI se incorporarán en sus fases respectivas; no se ejecuta aquí el pipeline ni se consulta ningún proveedor.
+E1/P1/P3 establecen esquema, guía, validación y división. E2 implementa recolección aislada, modos, cola con worker hijo, filtros, guardas, métricas y snapshots. E3/E4/E5/E6 (scoring offline, métricas, protección de test y CI de evaluación) siguen pendientes. No se ha ejecutado una corrida real del piloto ni se han llamado proveedores durante la implementación de E2.

@@ -1,14 +1,14 @@
 # Estado de la fase 3: evaluación de calidad del veredicto
 
 **Actualizado:** 2026-10-23  
-**Alcance implementado hasta ahora:** E1, ajustes P1 y P3  
-**Estado:** no se ha ejecutado el pipeline sobre el piloto ni se han llamado proveedores.
+**Alcance implementado:** E1, ajustes P1/P3 y E2
+**Estado:** E2 está implementada y probada con providers falsos; no se ha ejecutado una corrida real sobre el piloto ni se han llamado proveedores durante E2.
 
 ## Resumen ejecutivo
 
 Se creó la base para preparar y dividir un dataset de evaluación sin modificar el algoritmo, sus pesos o umbrales, ni las rutas de producción. El piloto de 14 registros se incorporó conservando sus líneas JSONL y se mantiene sin split asignado. Hay comandos para validar el dataset y asignar splits de forma determinista, con pruebas aisladas mediante fixtures.
 
-La recolección (`eval:collect`), la puntuación offline (`eval:score`), los reportes de métricas (`eval:report`), la protección del split test y el CI de evaluación todavía no están implementados. Por tanto, P2, P4 y P5 siguen pendientes. No se ha ejecutado `eval:split` sobre el piloto ni se ha iniciado una corrida real.
+La puntuación offline (`eval:score`), los reportes de métricas (`eval:report`), la protección del split test y el CI de evaluación todavía no están implementados. P2, P4 y P5 siguen pendientes. No se ha ejecutado `eval:split` sobre el piloto ni se ha iniciado una corrida real.
 
 ## Trabajo realizado
 
@@ -28,10 +28,21 @@ La recolección (`eval:collect`), la puntuación offline (`eval:score`), los rep
 
 - Se añadió `php artisan eval:split` en [`EvalSplit.php`](../app/Console/Commands/EvalSplit.php).
 - Usa `claim_group` como unidad indivisible; si falta, usa el `id` del caso. Los grupos se estratifican por su composición de clases y reciben una asignación determinista derivada de la semilla.
-- La semilla predeterminada es `20261022`; la proporción de test predeterminada es `0.2`, registrada en [`dataset/splits.json`](./dataset/splits.json). Se pueden sobreescribir mediante opciones del comando.
+- La semilla predeterminada es `20261022`; la proporción de test predeterminada es `0.3`, registrada en [`dataset/splits.json`](./dataset/splits.json). Se pueden sobreescribir mediante opciones del comando.
 - Actualiza las asignaciones del JSONL y guarda la semilla, los parámetros, las asignaciones por grupo/ID y la distribución en el manifiesto de splits.
 - Los ejemplos se conservan sin modificación y se excluyen por defecto. Las advertencias de mínimos no bloquean la escritura salvo con `--strict`; en ese modo no se escriben los archivos.
 - El comando solo se probó contra fixtures. No se ejecutó sobre `dataset/cases.jsonl`; el piloto continúa sin splits.
+
+### E2: recolección aislada
+
+- Se añadió `php artisan eval:collect` con filtrado por split/caso, límite de casos, reanudación, dry-run, límite de ritmo, run ID, modos, `--no-factcheck`, timeout por caso y timeout de drenaje.
+- La conexión `evaluation` exige variables `EVAL_DB_*` explícitas y guarda host/base separados de la conexión predeterminada; SQLite solo se acepta expresamente y con archivo distinto.
+- Se crea un usuario técnico estable por `(run_id, mode)`. `--resume` reutiliza identidad y omite snapshots completos.
+- Cache de evaluación usa store `database`, conexión `evaluation`, tabla de cache allí mismo y prefijo `eval:`. El alias de cola `redis`, el default de cola, el batching y `failed_jobs` se remapean solo durante la ejecución de evaluación.
+- Cada caso corre `queue:work --stop-when-empty` en un proceso hijo. El recolector drena trabajos diferidos en ciclos, aplica límites acumulados y registra intentos/fallos agotados. BERT puede fallar agotando reintentos sin bloquear la finalización del batch (`allowFailures`).
+- `production` no aplica exclusiones; `blind` filtra dominios en búsqueda y Google Fact Check; `--no-factcheck` desactiva solo esa etapa. El manifiesto y cada snapshot registran modo/flags, sin `expected_verdict`.
+- Las instantáneas se escriben atómicamente, omiten el texto completo y eliminan secretos/cabeceras no permitidas. `response_headers` conserva solo cabeceras de límite y usa `null` para los campos conocidos ausentes. `pricing.json` conserva precios nulos y el dry-run informa `costo pendiente`.
+- Prueba de humo incorporada al conjunto: dos casos, worker hijo real, proveedores falsos, un caso completo con BERT agotado no crítico y otro con extracción agotada; verifica `failed_jobs`, snapshots, manifiesto, aislamiento de cache/cola y ausencia de secretos en los archivos.
 
 ### Archivos principales añadidos o actualizados
 
@@ -47,10 +58,13 @@ La recolección (`eval:collect`), la puntuación offline (`eval:score`), los rep
 - [`tests/Feature/Evaluation/EvalSplitTest.php`](../tests/Feature/Evaluation/EvalSplitTest.php)
 - [`tests/Fixtures/Evaluation/split_cases.jsonl`](../tests/Fixtures/Evaluation/split_cases.jsonl)
 - `.gitignore` (exclusiones de datos locales de evaluación)
+- [`app/Console/Commands/EvalCollect.php`](../app/Console/Commands/EvalCollect.php), [`EvaluationRuntime.php`](../app/Services/Evaluation/EvaluationRuntime.php), [`EvaluationSnapshotSanitizer.php`](../app/Services/Evaluation/EvaluationSnapshotSanitizer.php) y [`EvaluationLogSanitizer.php`](../app/Logging/EvaluationLogSanitizer.php)
+- `app/Services/Evaluation/` (providers falsos), [`config/evaluation.php`](../config/evaluation.php), configuración de DB/cache/queue/logging y [`evaluation/pricing.json`](./pricing.json)
+- Pruebas E2: [`EvalCollectSmokeTest.php`](../tests/Feature/Evaluation/EvalCollectSmokeTest.php), [`EvalModeFilteringTest.php`](../tests/Feature/Evaluation/EvalModeFilteringTest.php) y [`EvaluationRuntimeTest.php`](../tests/Unit/Services/Evaluation/EvaluationRuntimeTest.php)
 
 ## Verificación realizada
 
-En los cambios de evaluación:
+Verificación de evaluación previa y línea base completa ejecutada el 2026-10-23:
 
 - Pruebas de `tests/Feature/Evaluation`: **9 pasaron**, 45 aserciones.
 - Pint, modo `--test`: pasó.
@@ -59,111 +73,101 @@ En los cambios de evaluación:
 - `php artisan eval:validate --strict`: falla cuando quedan advertencias, según lo requerido.
 - Pruebas de `eval:split`: comprueban determinismo con la misma semilla, estratificación en el fixture, que el grupo repetido no se divide, exclusión de ejemplos y que `--strict` no escriba cambios.
 - Se verificó que los 14 registros del piloto permanecen con `split: null`.
+- Línea base previa a E2: `composer ci` pasó; 208 pruebas detectadas, 207 aprobadas, 1 omitida y 809 aserciones; PHPStan y Pint pasaron.
+- Validación final posterior a E2: `composer ci` pasó; 216 pruebas detectadas, 215 aprobadas, 1 omitida y 876 aserciones; PHPStan pasó sin errores y Pint pasó.
+- Vista previa ejecutada: `php artisan eval:collect --dry-run --mode=production --run-id=pilot-dry-run`; mostró 14 casos, estimaciones nominales y `costo pendiente`. El dry-run no conecta a DB ni llama proveedores.
+- No se ejecutó ninguna corrida real ni se llamó a proveedores.
+- Al inicio de E2 el árbol estaba limpio. En la revisión final se detectó además el cambio ajeno de CI registrado al final de este documento.
 
-No se ejecutó la suite completa del proyecto como parte de P1/P3. El árbol de trabajo ya tenía otros cambios ajenos a estas tareas; no se revirtieron.
+## Decisiones de E2 implementadas
 
-## Plan propuesto para E2: recolección aislada
+### Parámetros y línea base
 
-Este plan describe el siguiente trabajo, no implica que esté implementado ni autoriza todavía una corrida real. E2 deberá aprobarse por separado antes de editar.
+El default de `test_ratio` de `eval:split` es `0.3` en `dataset/splits.json` y se refleja en el README y en el ejemplo del comando. La línea base completa anterior a E2 pasó antes de comenzar la implementación.
 
-### 1. Configuración y aislamiento de base de datos
+### Configuración y aislamiento de base de datos
 
-1. Añadir una conexión Laravel `evaluation`, PostgreSQL por defecto, con nombre de base `fn_eval` y variables de entorno `EVAL_DB_*`.
-2. Permitir SQLite únicamente cuando se seleccione explícitamente `EVAL_DB_CONNECTION=sqlite`.
-3. Antes de cualquier escritura, comprobar que el comando está conectado a `evaluation` y que la base corresponde a la configuración de evaluación. Establecer esa conexión como predeterminada solo dentro del proceso Artisan de evaluación.
-4. Ejecutar las migraciones existentes contra la conexión de evaluación y crear/identificar un usuario técnico de evaluación. No reutilizar usuarios ni registros de producción.
-5. Persistir los datos necesarios para el pipeline solamente en `fn_eval`. Los archivos locales con texto completo permanecen fuera de Git.
+1. La conexión Laravel `evaluation` usa variables `EVAL_DB_*`; la configuración impide usar host/base de la conexión predeterminada. SQLite se admite solo si `EVAL_DB_CONNECTION=sqlite` está configurado explícitamente y la ruta es distinta.
+2. `eval:collect` falla antes de migrar, crear datos o despachar jobs si faltan ajustes requeridos o la conexión de evaluación no está aislada. Las pruebas cubren variables ausentes, host/base iguales y rutas SQLite coincidentes.
+3. La conexión predeterminada de DB, cache y queue se cambia al contexto `evaluation` durante el comando. Migraciones, artículos, análisis, jobs, batches, cache y failed jobs se guardan en esa base; el texto completo local permanece fuera de Git.
+4. Se usa un usuario técnico por `(run_id, mode)`, creado idempotentemente con identidad estable. Así el unique `(article_id, user_id)` permite una observación por caso y modo; separa corridas/modos sin borrar datos. `--resume` reutiliza identidad y snapshots completos del mismo `run_id`/modo.
 
-### 2. Reutilizar las mismas etapas del pipeline
+### Cola, reintentos y fidelidad de jobs
 
-El recolector debe reutilizar los jobs y servicios existentes, no duplicar la lógica de extracción, clasificación, búsqueda, verificación ni scoring:
+Se compararon dos opciones:
 
-1. Crear el artículo de evaluación a partir de URL o texto local.
-2. Invocar `AnalyzeArticleJob`; interceptar el despacho de `ExtractClaimsJob` en lugar de permitir que se publique en Redis.
-3. Ejecutar el mismo `ExtractClaimsJob` que usa producción.
-4. Recoger el batch creado por ese job y ejecutar los objetos `ClassifyArticleJob`, `VerifyClaimJob` y `SearchClaimEvidenceJob` sobre la conexión de evaluación.
-5. Ejecutar `FinalizeAnalysisJob` al terminar la barrera del batch.
+- **(a) Llamar `handle()` directamente:** tiene menor complejidad inicial, pero evita el worker y pierde el ciclo de reintentos (`tries`/`backoff`), la aplicación del timeout, `failed()` al agotar intentos, y la semántica del batch (`then`/`finally`/`allowFailures`). Emular esas partes manualmente duplicaría comportamiento y sería menos fiel.
+- **(b) Cola `database` de evaluación:** los jobs pasan por el worker Laravel, por lo que conserva intentos, backoff, timeout, callbacks de fallo y batches. Tiene complejidad moderada y riesgo de configuración de conexiones/tablas; se limita al proceso del comando y a tablas de evaluación.
 
-En producción las tareas dentro del batch se procesan en paralelo; no se debe afirmar que allí tienen un orden temporal secuencial. La prueba de integración verificará el orden de construcción/despacho del batch usado por producción y que la finalización ocurre después de las etapas de ese batch. Un dispatcher acotado al proceso de evaluación impedirá que cualquier despacho/batch alcance Redis.
+**Elección implementada: (b).** La cola `evaluation` usa driver `database` y la conexión de base `evaluation`, con tablas de jobs, batches y `failed_jobs` de evaluación. Durante `eval:collect` se remapea en memoria `redis` y el default de cola, así los jobs explícitos y los batches usan la cola aislada. Producción no cambia. `queue:work --connection=redis --stop-when-empty` corre en un proceso hijo Symfony Process.
 
-### 3. Opciones, modos y ejecución reanudable
+`--stop-when-empty` por sí solo puede salir mientras aún hay reintentos diferidos por backoff. El comando drena en ciclos hasta que jobs/batches sean terminales o se alcance `--drain-timeout`; `--case-timeout` termina al hijo si un caso excede su límite, marca el caso fallido y continúa. Los jobs que agotan reintentos quedan en `failed_jobs` de evaluación y en la instantánea con clase, motivo, intentos y tiempo; también se ejecuta su método `failed()`.
 
-Implementar las opciones acordadas:
+El recolector reutiliza los jobs/servicios de producción. No se presupone orden temporal entre las tareas del batch. Se conserva `allowFailures()`: si BERT agota reintentos, se registra `classifier_unavailable` y la finalización sigue; se prueba en la cola real con el worker hijo. En caso de fallos permitidos, el recolector reconoce batch terminal cuando todos los jobs han finalizado o fallado, incluso cuando el framework conserva `pending_jobs` para jobs fallidos.
 
-- `--split`, `--case`, `--limit`, `--resume`, `--dry-run`, `--max-cases-per-minute` y `--run-id`.
-- `--mode=production|blind`.
-- `--no-factcheck`.
+### Opciones, modos y aislamiento de etiquetas
 
-Los casos se procesarán en orden determinista por ID. `--resume` omitirá instantáneas completas y permitirá reintentar las fallidas o incompletas. `--dry-run` no conectará a la base, no descargará artículos y no llamará servicios HTTP.
+Opciones: `--split`, `--case`, `--limit`, `--resume`, `--dry-run`, `--max-cases-per-minute`, `--run-id`, `--mode=production|blind` y `--no-factcheck`. Los casos se procesan por ID en orden determinista. `--dry-run` no conecta a base de datos ni hace descargas o solicitudes HTTP; informa las llamadas estimadas y `costo pendiente`.
 
-Para `input_type=text`, se leerá `evaluation/cache/<id>.txt` si existe. Si falta, se usará `input_text_hint` y se registrará `input_source=hint`; si existe el archivo local, se registrará `input_source=original`. Un hint corto no es equivalente al texto completo y debe quedar visible como limitación de esa observación.
+- `production`: todas las etapas activas y ningún dominio excluido, incluso si el caso enumera `excluded_domains`.
+- `blind`: aplicar los `excluded_domains` del caso tanto a la búsqueda web como a resultados de Google Fact Check. En búsqueda, solicitar la exclusión al proveedor si la API lo admite y filtrar localmente por host y subdominios. En fact-check, filtrar por `publisher_site` y por el host de la URL del resultado antes de persistir.
+- `--no-factcheck`: desactiva solo la etapa de Google Fact Check. Es combinable con ambos modos; búsqueda, extracción, BERT y scoring continúan activos.
+- El manifiesto de corrida y cada instantánea registran `mode` y flags efectivos (incluyendo `no_factcheck`, exclusiones aplicadas y etapa de fact-check activa). `expected_verdict` nunca se envía al pipeline ni se almacena en una instantánea de predicción, en ningún modo; `blind` no redefine esa protección.
 
-La interpretación propuesta de `blind` es ejecutar los mismos proveedores y etapas, pero no exponer `expected_verdict` al pipeline ni incluirlo en la instantánea de predicción. El ID permitirá unir la instantánea con la etiqueta en la fase de reporte. `production` y `blind` se reportarán separados.
+Para `input_type=text`, se lee `evaluation/cache/<id>.txt` si existe; en caso contrario se usa `input_text_hint`. La entrada obtenida desde URL se registra como `original`; se guarda el hash y la fuente (`original|hint`), no el texto completo.
 
-### 4. Filtro opcional de dominios excluidos
+### Filtro de dominios excluidos
 
-El hook de exclusión debe estar inactivo si `excluded_domains` no está presente o está vacío, manteniendo el comportamiento de producción.
+Esta política solo se aplica en modo `blind`; `production` no aplica exclusiones. Si el caso no tiene exclusiones, `blind` no filtra dominios. Las pruebas cubren el filtro por publisher y host en Fact Check, el filtro por host/subdominio de búsqueda y `--no-factcheck`.
 
-- Búsqueda web: enviar la lista de exclusión a Tavily cuando el proveedor la acepte y filtrar localmente los resultados devueltos por host y subdominios, incluso si el proveedor no la respeta.
-- Google Fact Check: filtrar resultados por dominio del publicador (`publisher_site`) y host de la URL de verificación antes de persistirlos.
-- Añadir pruebas de ambos filtros y una prueba explícita de que la ausencia de exclusiones no cambia la política/productos actuales.
+### Instantáneas y manifiesto
 
-### 5. Instantáneas y manifiesto
-
-Escribir una instantánea atómica por caso en `evaluation/runs/<run_id>/cases/<id>.json`, sin almacenar el texto completo del artículo. Debe contener, cuando estén disponibles:
+Escribir una instantánea atómica por caso en `evaluation/runs/<run_id>/<mode>/cases/<id>.json`, sin almacenar el texto completo del artículo. Contiene, cuando están disponibles:
 
 - hash del contenido de entrada y origen `original|hint`;
 - claims, evidencias y verificaciones por claim;
 - predicción BERT o su ausencia;
 - score y veredicto originales del pipeline;
-- modo (`production`/`blind`), proveedor, modelo y versiones;
+- modo y flags efectivos (en cada instantánea y en el manifiesto), proveedor, modelo y versiones;
 - `algorithm_version` y commit Git;
-- tokens observados, latencia, errores y marcas de tiempo.
+- tokens observados, latencia total de pared, reintentos por job, errores y marcas de tiempo.
+- campos/cabeceras de límites de tasa que el proveedor entregue (por ejemplo `x-ratelimit-*`), conservados por proveedor; registrar `null` cuando no existan.
 
-El manifiesto por corrida registrará la configuración de scoring efectiva, versiones, parámetros, conteos por estado/modo y las referencias a instantáneas. Fallar un caso no debe detener el resto de la corrida; los errores deben quedar claramente registrados, sin simular éxito.
+El manifiesto por corrida registra configuración, versiones, parámetros, modo/flags, conteos por estado y referencias a instantáneas. Cada entrada de caso conserva modo y flags efectivos. Un fallo de caso no detiene el resto. La estimación nominal por caso (hasta 10 claims) es orientativa; reintentos/fallbacks pueden aumentarla.
 
-### 6. Estimación de llamadas, tokens y costo
+### Estimación de llamadas, tokens y costo
 
-Estimación nominal actual por caso, con hasta 10 claims:
+No inventar uso, límites ni tarifas: extraer tokens y campos de rate limit solo cuando los proveedores los entreguen; si no, registrar `null` (no cero). Añadir `evaluation/pricing.json` versionado con todos los precios inicialmente nulos. `--dry-run` mostrará literalmente `costo pendiente`. Informar solo límites/cabeceras observados y errores de cuota/rate-limit; no inferir saldo ni costo financiero.
 
-- 1 llamada de extracción a Gemini;
-- 1 llamada de síntesis a Gemini;
-- 1 llamada al clasificador BERT, normalmente local;
-- hasta 10 consultas de búsqueda web;
-- hasta 20 consultas de Google Fact Check (puede probar una segunda consulta por claim si la primera no ofrece rating utilizable).
+### Pruebas y controles de ejecución
 
-El total orientativo es hasta 33 solicitudes contando BERT, sin ser un máximo estricto. El fetch de URL puede seguir redirecciones; además existen fallbacks y reintentos, así que el número real puede ser superior.
-
-El repositorio no mide actualmente tokens de Gemini ni dispone de tarifas. E2 debe extraer contadores de uso de las respuestas solo cuando el proveedor los entregue; en otro caso registrar `null`, no cero. Se propone añadir `evaluation/pricing.json`, versionado y editable, inicialmente con precios nulos. `--dry-run` mostrará las llamadas estimadas y que el costo está pendiente; no se inventarán precios. El sistema actual tampoco expone el saldo/cuota restante de las cuentas de proveedor, por lo que solo se podrán informar solicitudes, tokens reportados, latencias y respuestas/errores de cuota o rate-limit, no la cuota financiera consumida con precisión.
-
-### 7. Pruebas y controles de ejecución
-
-- Usar `Http::fake`, providers falsos y `preventStrayRequests` en pruebas; ninguna prueba usará red real.
-- Probar orden de etapas y ausencia de despacho Redis.
-- Probar aislamiento de la conexión; confirmar antes de escribir que no se apunta a la base normal.
-- Probar ambos modos, `--no-factcheck`, dominios excluidos en búsqueda y fact-check, resume, límite de casos, errores por caso y escritura atómica.
-- Probar `--dry-run` sin invocaciones HTTP ni escrituras de base.
-- Ejecutar pruebas enfocadas, Pint y Larastan antes de cerrar E2.
+- `GeminiModelCircuit` usa `Cache::has/put`; su default se cambia a store `evaluation` dentro del comando y worker hijo. `EvalCollect` y los listeners de jobs guardan explícitamente intentos y agotamientos con `Cache::store('evaluation')`. El store usa driver `database`, conexión `evaluation`, tabla `cache` y prefijo `eval:<run_id>:<mode>:`; también `Cache::lock` usaría ese store por defecto. El cache y circuit breaker de producción no cambian.
+- `RateLimiter` solo aparece en `AuthenticateApiKey`; `eval:collect` es Artisan y no ejecuta ese middleware. Si una etapa usa `RateLimiter`, el default activo es el store `evaluation` tanto en comando como en hijo. No hay uso directo de `Redis::` ni locks de aplicación en `app/`.
+- Las conexiones explícitas `onConnection('redis')` están en `StartAnalysis`, `AnalysisController`, `AnalyzeArticleJob` y `ExtractClaimsJob`, incluidos jobs de batch y callbacks. El runtime de evaluación remapea en memoria el alias `redis` a la cola database de `evaluation`, y cambia `queue.default`, `queue.batching.database` y `queue.failed.database`; `jobs`, `job_batches` y `failed_jobs` no tocan Redis ni la DB normal. Producción conserva sus conexiones.
+- La prueba de humo simula fallo de proveedor y comprueba que el estado del circuit breaker de producción no cambia; los providers son falsos y el test prohíbe solicitudes HTTP no simuladas.
+- Las pruebas cubren guardas DB, ambos modos, `--no-factcheck`, filtrado, worker hijo, cola/cache, reintentos y batch tolerante, failed jobs, telemetría, sanitización, snapshots y manifiesto.
+- La validación completa posterior a E2 está registrada arriba.
 
 ### 8. Operación del piloto (P5)
 
-`eval:collect` todavía no existe, así que no es posible ejecutar P5 ahora. Cuando E2 esté implementado, la secuencia acordada será:
-
 1. Validar el piloto.
-2. Ejecutar `eval:collect --dry-run` y mostrar solicitudes estimadas/costo pendiente.
-3. Solo con autorización explícita, correr dos casos (uno `false`, uno `credible`) en modo `production` sobre la base de evaluación y detenerse para entregar solicitudes reales por proveedor, tokens disponibles, latencia, errores y datos de cuota que realmente expongan los proveedores.
-4. Esperar otra autorización explícita antes de correr los 14 casos en `production` y después en `blind`.
+2. Se puede ejecutar la vista previa `php artisan eval:collect --dry-run --mode=production --run-id=pilot-dry-run`; no conecta a DB ni a proveedores.
+3. Toda corrida real requiere autorización explícita para llamar proveedores y una base de evaluación aislada. Tras una corrida autorizada, reportar solicitudes, tokens/cabeceras realmente disponibles, latencia y errores.
+4. Antes de correr el piloto en `production` y en `blind`, esperar autorización explícita para cada secuencia P5. Son usuarios distintos por modo aunque compartan `run_id`; modo y flags quedan en manifiesto e instantáneas.
 
 No se ajustarán pesos ni se interpretarán resultados durante esas corridas.
 
 ## Pendiente posterior
 
-- **E2:** recolección aislada, modos, exclusiones y snapshots.
 - **E3:** scoring offline puro desde instantáneas y prueba de paridad.
 - **P2 / E4:** métricas y reportes que incluyan solo `status=verificado` por defecto; `--include-unverified` amplía la selección y el reporte debe contar incluidos/excluidos. Separar vista estricta de cuatro clases y vista gruesa donde `misleading` y `false` se agregan. `inconclusive` predicho para una clase respondible se cuenta como abstención y reduce cobertura, no como error de clase.
 - **E5:** bloquear reportes de test sin `--final` y registrar cada uso del test.
 - **P4:** lectura local del texto cacheado o fallback al hint y separación de métricas por `input_source`.
 - **E6:** smoke de CI sin red y documentación final.
+
+## Cambios ajenos a E2
+
+Durante el trabajo apareció un cambio en [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) que cambia `aquasecurity/trivy-action@0.36.0` a `aquasecurity/trivy-action@v0.36.0`. No forma parte de E2 y se excluirá de sus commits.
 
 ## Decisiones de veredictos
 
