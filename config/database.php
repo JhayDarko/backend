@@ -114,6 +114,22 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'evaluation' => [
+            'driver' => env('EVAL_DB_CONNECTION', 'pgsql'),
+            'url' => null,
+            'host' => env('EVAL_DB_HOST'),
+            'port' => env('EVAL_DB_PORT'),
+            'database' => env('EVAL_DB_DATABASE'),
+            'username' => env('EVAL_DB_USERNAME'),
+            'password' => env('EVAL_DB_PASSWORD'),
+            'charset' => env('EVAL_DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => env('EVAL_DB_SEARCH_PATH', 'public'),
+            'sslmode' => env('EVAL_DB_SSLMODE', 'prefer'),
+            'foreign_key_constraints' => true,
+        ],
+
     ],
 
     /*
