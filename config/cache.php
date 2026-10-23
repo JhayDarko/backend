@@ -47,6 +47,15 @@ return [
             'lock_table' => env('DB_CACHE_LOCK_TABLE'),
         ],
 
+        'evaluation' => [
+            'driver' => 'database',
+            'connection' => 'evaluation',
+            'table' => env('EVAL_DB_CACHE_TABLE', 'cache'),
+            'lock_connection' => 'evaluation',
+            'lock_table' => env('EVAL_DB_CACHE_LOCK_TABLE', 'cache_locks'),
+            'prefix' => 'eval:',
+        ],
+
         'file' => [
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),
