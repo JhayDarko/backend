@@ -1,0 +1,11 @@
+{"id":"credible-a1","claim_group":"credible-shared","expected_verdict":"credible","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"credible-a2","claim_group":"credible-shared","expected_verdict":"credible","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"credible-b","claim_group":"credible-independent","expected_verdict":"credible","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"misleading-a","claim_group":"misleading-a","expected_verdict":"misleading","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"misleading-b","claim_group":"misleading-b","expected_verdict":"misleading","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"false-a","claim_group":"false-a","expected_verdict":"false","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"false-b","claim_group":"false-b","expected_verdict":"false","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"false-c","claim_group":"false-c","expected_verdict":"false","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"inconclusive-a","claim_group":"inconclusive-a","expected_verdict":"inconclusive","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"inconclusive-b","claim_group":"inconclusive-b","expected_verdict":"inconclusive","split":null,"status":"candidato_sin_verificar","example":false}
+{"id":"example-preserved","claim_group":null,"expected_verdict":"credible","split":"dev","status":"verificado","example":true}

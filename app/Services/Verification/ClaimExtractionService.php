@@ -37,10 +37,6 @@ final class ClaimExtractionService
             ? app(AiProviderInterface::class)
             : new GeminiProvider;
 
-        if (! $provider instanceof AiProviderInterface) {
-            throw AiProviderException::configuration('No AI provider implementation is registered.');
-        }
-
         $response = $provider->extractClaims(
             (string) $article->title,
             (string) $article->content,
