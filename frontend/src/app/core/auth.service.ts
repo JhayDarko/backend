@@ -2,7 +2,8 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { EMPTY, Observable, catchError, finalize, map, shareReplay, tap, throwError } from 'rxjs';
-import { User } from './models';
+import { A11yService } from './a11y.service';
+import { User, UserPreferences } from './models';
 
 const TOKEN_KEY = 'factnode.token';
 const USER_KEY = 'factnode.user';
@@ -20,6 +21,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly a11y = inject(A11yService);
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private refreshInFlight: Observable<AuthResponse> | null = null;
   private sessionVersion = 0;
@@ -28,6 +30,9 @@ export class AuthService {
   readonly isLoggedIn = computed(() => this.user() !== null && this.token() !== null);
 
   constructor() {
+    const storedUser = this.user();
+    if (storedUser?.preferences) this.a11y.setPreferences(storedUser.preferences);
+
     const onFocus = () => this.refreshIfNeeded().subscribe({ error: () => undefined });
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -94,6 +99,12 @@ export class AuthService {
     );
   }
 
+  savePreferences(preferences: UserPreferences): Observable<User> {
+    return this.http
+      .put<{ data: User }>('/api/v1/auth/preferences', { preferences })
+      .pipe(map((response) => this.updateUser(response.data)));
+  }
+
   logout(): void {
     if (this.token()) {
       this.http.post('/api/v1/auth/logout', {}).subscribe({ error: () => undefined });
@@ -152,6 +163,7 @@ export class AuthService {
     localStorage.setItem(USER_KEY, JSON.stringify(response.data));
     localStorage.setItem(EXPIRATION_KEY, response.expires_at);
     this.user.set(response.data);
+    if (response.data.preferences) this.a11y.setPreferences(response.data.preferences);
     this.scheduleRefresh(justRefreshed);
   }
 
@@ -261,6 +273,7 @@ export class AuthService {
   private updateUser(user: User): User {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.user.set(user);
+    if (user.preferences) this.a11y.setPreferences(user.preferences);
     return user;
   }
 }

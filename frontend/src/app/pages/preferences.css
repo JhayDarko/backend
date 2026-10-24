@@ -25,6 +25,10 @@ app-preferences .saved-indicator span {
   font-size: 0.75rem;
   font-weight: 700;
 }
+app-preferences .saved-indicator[data-state='error'] span {
+  background: color-mix(in srgb, var(--ladrillo) 13%, var(--card));
+  color: var(--ladrillo-text);
+}
 app-preferences .page-heading > p:last-child {
   margin-top: 0.5rem;
 }
@@ -234,6 +238,48 @@ app-preferences .font-value {
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
+app-preferences .choice-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+}
+app-preferences .choice-setting h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+}
+app-preferences .choice-options {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+app-preferences .choice-option {
+  min-height: 40px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+app-preferences .choice-option[aria-pressed='true'] {
+  border: 2px solid var(--cobalto);
+  padding: calc(0.4rem - 1px) calc(0.65rem - 1px);
+  color: var(--cobalto);
+  font-weight: 600;
+}
+app-preferences .font-preview {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  font-size: 1.15rem;
+}
 app-preferences .switch {
   position: relative;
   flex: none;
@@ -324,7 +370,12 @@ app-preferences .profile-actions p {
     grid-template-columns: 1fr;
   }
   app-preferences .font-control,
-  app-preferences .setting-row {
+  app-preferences .setting-row,
+  app-preferences .choice-setting {
     gap: 0.6rem;
+  }
+  app-preferences .choice-setting {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

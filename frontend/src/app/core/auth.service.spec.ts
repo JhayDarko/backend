@@ -11,6 +11,9 @@ describe('AuthService + interceptor', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.removeAttribute('data-density');
+    document.documentElement.removeAttribute('data-font-family');
     TestBed.configureTestingModule({
       providers: [provideRouter([{ path: '**', children: [] }]), provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
     });
@@ -35,6 +38,53 @@ describe('AuthService + interceptor', () => {
     const request = http.expectOne('/api/v1/analyses');
     expect(request.request.headers.get('Authorization')).toBe('Bearer tok');
     request.flush({ data: [] });
+  });
+
+  it('applies preferences returned with the authenticated profile', () => {
+    const preferences = {
+      theme: 'dark' as const,
+      fontScale: 1.15 as const,
+      highContrast: true,
+      reduceMotion: true,
+      lineHeight: 'relaxed' as const,
+      density: 'compact' as const,
+      fontFamily: 'atkinson' as const,
+    };
+    auth.login('a@b.co', 'Secreta123').subscribe();
+    http.expectOne('/api/v1/auth/login').flush({
+      data: { id: 1, name: 'Ana', email: 'a@b.co', preferences },
+      token: 'tok',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    expect(auth.user()?.preferences).toEqual(preferences);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+    expect(document.documentElement.getAttribute('data-font-family')).toBe('atkinson');
+    expect(document.documentElement.classList.contains('high-contrast')).toBe(true);
+    expect(document.documentElement.classList.contains('reduce-motion')).toBe(true);
+  });
+
+  it('saves updated preferences to the authenticated profile', () => {
+    login();
+    const preferences = {
+      theme: 'light' as const,
+      fontScale: 1.3 as const,
+      highContrast: false,
+      reduceMotion: false,
+      lineHeight: 'compact' as const,
+      density: 'comfortable' as const,
+      fontFamily: 'system' as const,
+    };
+
+    auth.savePreferences(preferences).subscribe();
+    const request = http.expectOne('/api/v1/auth/preferences');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ preferences });
+    request.flush({ data: { id: 1, name: 'Ana', email: 'a@b.co', preferences } });
+
+    expect(auth.user()?.preferences).toEqual(preferences);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 
   it('sends the Google ID credential to the API and stores only the Sanctum token', () => {

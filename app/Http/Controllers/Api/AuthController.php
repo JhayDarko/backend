@@ -12,6 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -213,6 +215,34 @@ final class AuthController extends Controller
         return response()->json(['data' => $this->userPayload($request->user())]);
     }
 
+    public function updatePreferences(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'preferences' => ['required', 'array:theme,fontScale,highContrast,reduceMotion,lineHeight,density,fontFamily'],
+            'preferences.theme' => ['required', Rule::in(['system', 'light', 'dark'])],
+            'preferences.fontScale' => ['required', 'numeric', Rule::in([0.9, 1, 1.15, 1.3])],
+            'preferences.highContrast' => ['required', 'boolean'],
+            'preferences.reduceMotion' => ['required', 'boolean'],
+            'preferences.lineHeight' => ['required', Rule::in(['compact', 'normal', 'relaxed'])],
+            'preferences.density' => ['required', Rule::in(['comfortable', 'compact'])],
+            'preferences.fontFamily' => ['required', Rule::in(['system', 'atkinson'])],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'code' => 'invalid_preferences',
+                'message' => 'Las preferencias enviadas no son válidas.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+        $user->preferences = $validator->validated()['preferences'];
+        $user->save();
+
+        return response()->json(['data' => $this->userPayload($user)]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $currentToken = $this->persistentToken($request->user()->currentAccessToken());
@@ -328,6 +358,7 @@ final class AuthController extends Controller
                 ...($user->password !== null ? ['password'] : []),
                 ...($user->socialAccounts()->exists() ? ['google'] : []),
             ],
+            'preferences' => $user->preferences,
         ];
     }
 }

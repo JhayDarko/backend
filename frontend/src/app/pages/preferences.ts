@@ -1,5 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { EMPTY, Subject, catchError, concatMap, tap } from 'rxjs';
 import { AuthService } from '../core/auth.service';
 import { A11yPrefs, A11yService } from '../core/a11y.service';
 import { errorMessage } from '../core/http';
@@ -16,9 +18,24 @@ type ThemeChoice = A11yPrefs['theme'];
         <p class="eyebrow">Tu cuenta</p>
         <div class="heading-row">
           <h1 id="page-title">Preferencias</h1>
-          <span class="saved-indicator"><span aria-hidden="true">✓</span> Guardado automático</span>
+          <span class="saved-indicator" [attr.data-state]="saveState()" role="status" aria-live="polite">
+            <span aria-hidden="true">{{ saveState() === 'saved' ? '✓' : '·' }}</span>
+            {{
+              saveState() === 'saving'
+                ? 'Guardando cambios…'
+                : saveState() === 'error'
+                  ? 'No se guardaron'
+                  : 'Cambios guardados'
+            }}
+          </span>
         </div>
         <p>Ajusta la apariencia, la accesibilidad y los datos de tu cuenta.</p>
+        @if (preferenceError()) {
+          <p class="alert" role="alert">{{ preferenceError() }}</p>
+        }
+        @if (profileError()) {
+          <p class="alert" role="alert">{{ profileError() }}</p>
+        }
       </header>
 
       <nav class="section-nav" aria-label="Secciones de preferencias">
@@ -67,7 +84,7 @@ type ThemeChoice = A11yPrefs['theme'];
                 </button>
               }
             </div>
-            <p class="hint">La selección se guarda automáticamente en este dispositivo.</p>
+            <p class="hint">La selección se guarda en tu perfil y en este dispositivo.</p>
           </fieldset>
         </section>
 
@@ -89,7 +106,7 @@ type ThemeChoice = A11yPrefs['theme'];
             <div>
               <h3>Tamaño del texto</h3>
               <p class="setting-description">
-                Ajusta el tamaño del contenido de toda la aplicación.
+                Elige entre cuatro escalas para ajustar la lectura en toda la aplicación.
               </p>
             </div>
             <div class="font-actions" role="group" aria-label="Tamaño del texto">
@@ -98,7 +115,7 @@ type ThemeChoice = A11yPrefs['theme'];
                 class="icon-button"
                 aria-label="Reducir tamaño del texto"
                 [disabled]="a11y.prefs().fontScale <= minFontScale"
-                (click)="a11y.decreaseFont()"
+                (click)="changeFontSize(false)"
               >
                 A−
               </button>
@@ -108,7 +125,7 @@ type ThemeChoice = A11yPrefs['theme'];
                 class="icon-button"
                 aria-label="Aumentar tamaño del texto"
                 [disabled]="a11y.prefs().fontScale >= maxFontScale"
-                (click)="a11y.increaseFont()"
+                (click)="changeFontSize(true)"
               >
                 A+
               </button>
@@ -130,7 +147,7 @@ type ThemeChoice = A11yPrefs['theme'];
               [attr.aria-label]="
                 'Alto contraste: ' + (a11y.prefs().highContrast ? 'activado' : 'desactivado')
               "
-              (click)="a11y.toggleContrast()"
+              (click)="toggleContrast()"
             >
               <span></span>
             </button>
@@ -149,11 +166,75 @@ type ThemeChoice = A11yPrefs['theme'];
               [attr.aria-label]="
                 'Reducir animaciones: ' + (a11y.prefs().reduceMotion ? 'activado' : 'desactivado')
               "
-              (click)="a11y.toggleMotion()"
+              (click)="toggleMotion()"
             >
               <span></span>
             </button>
           </div>
+
+          <div class="choice-setting">
+            <div>
+              <h3>Interlineado</h3>
+              <p class="setting-description">Ajusta el espacio vertical entre líneas.</p>
+            </div>
+            <div class="choice-options" role="group" aria-label="Interlineado">
+              @for (choice of lineHeightChoices; track choice.value) {
+                <button
+                  type="button"
+                  class="choice-option"
+                  [attr.aria-pressed]="a11y.prefs().lineHeight === choice.value"
+                  (click)="setLineHeight(choice.value)"
+                >
+                  {{ choice.label }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="choice-setting">
+            <div>
+              <h3>Densidad</h3>
+              <p class="setting-description">Elige entre más espacio o una vista compacta.</p>
+            </div>
+            <div class="choice-options" role="group" aria-label="Densidad de contenido">
+              @for (choice of densityChoices; track choice.value) {
+                <button
+                  type="button"
+                  class="choice-option"
+                  [attr.aria-pressed]="a11y.prefs().density === choice.value"
+                  (click)="setDensity(choice.value)"
+                >
+                  {{ choice.label }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="choice-setting">
+            <div>
+              <h3>Fuente de lectura</h3>
+              <p class="setting-description">
+                Atkinson Hyperlegible distingue con claridad letras y números similares.
+              </p>
+            </div>
+            <div class="choice-options" role="group" aria-label="Fuente de lectura">
+              @for (choice of fontChoices; track choice.value) {
+                <button
+                  type="button"
+                  class="choice-option"
+                  [attr.aria-pressed]="a11y.prefs().fontFamily === choice.value"
+                  (click)="setFontFamily(choice.value)"
+                >
+                  {{ choice.label }}
+                </button>
+              }
+            </div>
+          </div>
+          @if (a11y.prefs().fontFamily === 'atkinson') {
+            <p class="font-preview" aria-label="Vista previa de Atkinson Hyperlegible">
+              Il1 · B8 · 0O — Lectura clara para cada persona.
+            </p>
+          }
         </section>
 
         <section
@@ -212,7 +293,7 @@ type ThemeChoice = A11yPrefs['theme'];
 
           <div class="profile-actions">
             <p class="setting-description">
-              Tus preferencias visuales se guardan localmente y no modifican los datos de tu cuenta.
+              Tus preferencias se guardan en tu perfil y en este dispositivo.
             </p>
             <button type="button" class="btn danger" (click)="auth.logout()">Cerrar sesión</button>
           </div>
@@ -224,29 +305,117 @@ type ThemeChoice = A11yPrefs['theme'];
 export class PreferencesPage {
   protected readonly auth = inject(AuthService);
   protected readonly a11y = inject(A11yService);
+  protected readonly saveState = signal<'saved' | 'saving' | 'error'>('saved');
+  protected readonly preferenceError = signal('');
+  protected readonly profileError = signal('');
   protected readonly googleBusy = signal(false);
   protected readonly googleError = signal('');
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly preferenceWrites = new Subject<A11yPrefs>();
+  private hasLocalEdits = false;
 
   constructor() {
+    this.preferenceWrites
+      .pipe(
+        concatMap((preferences) =>
+          this.auth.savePreferences(preferences).pipe(
+            tap(() => {
+              this.saveState.set('saved');
+              this.preferenceError.set('');
+            }),
+            catchError((error: unknown) => {
+              this.saveState.set('error');
+              this.preferenceError.set(errorMessage(error, 'No se pudieron guardar las preferencias.'));
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+
     this.auth.loadCurrentUser().subscribe({
-      error: (error) => this.googleError.set(errorMessage(error, 'No se pudo cargar el perfil.')),
+      next: (user) => {
+        if (this.hasLocalEdits) return;
+        if (user.preferences) {
+          this.a11y.setPreferences(user.preferences);
+        } else {
+          this.persistPreferences();
+        }
+      },
+      error: (error) => this.profileError.set(errorMessage(error, 'No se pudo cargar el perfil.')),
     });
   }
 
   protected readonly minFontScale = 0.9;
-  protected readonly maxFontScale = 1.5;
+  protected readonly maxFontScale = 1.3;
   protected readonly themes: { value: ThemeChoice; label: string; description: string }[] = [
     { value: 'system', label: 'Sistema', description: 'Usa la preferencia del dispositivo' },
     { value: 'light', label: 'Claro', description: 'Fondo Niebla y tarjetas blancas' },
     { value: 'dark', label: 'Oscuro', description: 'Fondo Tinta y tarjetas oscuras' },
   ];
+  protected readonly lineHeightChoices: { value: A11yPrefs['lineHeight']; label: string }[] = [
+    { value: 'compact', label: 'Compacto' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'relaxed', label: 'Amplio' },
+  ];
+  protected readonly densityChoices: { value: A11yPrefs['density']; label: string }[] = [
+    { value: 'comfortable', label: 'Cómoda' },
+    { value: 'compact', label: 'Compacta' },
+  ];
+  protected readonly fontChoices: { value: A11yPrefs['fontFamily']; label: string }[] = [
+    { value: 'system', label: 'Sistema' },
+    { value: 'atkinson', label: 'Atkinson Hyperlegible' },
+  ];
 
   protected setTheme(theme: ThemeChoice): void {
     this.a11y.setTheme(theme);
+    this.persistPreferences();
+  }
+
+  protected changeFontSize(increase: boolean): void {
+    if (increase) {
+      this.a11y.increaseFont();
+    } else {
+      this.a11y.decreaseFont();
+    }
+    this.persistPreferences();
+  }
+
+  protected toggleContrast(): void {
+    this.a11y.toggleContrast();
+    this.persistPreferences();
+  }
+
+  protected toggleMotion(): void {
+    this.a11y.toggleMotion();
+    this.persistPreferences();
+  }
+
+  protected setLineHeight(value: A11yPrefs['lineHeight']): void {
+    this.a11y.setLineHeight(value);
+    this.persistPreferences();
+  }
+
+  protected setDensity(value: A11yPrefs['density']): void {
+    this.a11y.setDensity(value);
+    this.persistPreferences();
+  }
+
+  protected setFontFamily(value: A11yPrefs['fontFamily']): void {
+    this.a11y.setFontFamily(value);
+    this.persistPreferences();
   }
 
   protected fontPercent(): number {
     return Math.round(this.a11y.prefs().fontScale * 100);
+  }
+
+  private persistPreferences(): void {
+    this.hasLocalEdits = true;
+    this.saveState.set('saving');
+    this.preferenceError.set('');
+    this.preferenceWrites.next(this.a11y.prefs());
   }
 
   protected linkGoogle(credential: string): void {
