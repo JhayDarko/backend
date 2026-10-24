@@ -967,6 +967,12 @@ parameters:
 			path: app/Services/Source/SourceProfileService.php
 
 		-
+			message: '#^Instanceof between App\\Services\\AI\\Providers\\FallbackAiProvider\|App\\Services\\AI\\Providers\\GeminiProvider and App\\Contracts\\AiProviderInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: app/Services/Verification/ClaimExtractionService.php
+
+		-
 			message: '#^Offset ''context'' on array\{text\: string, importance\: float, verifiable\: bool, type\: string, context\: string\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1

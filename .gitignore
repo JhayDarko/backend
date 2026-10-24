@@ -2,10 +2,6 @@
 .DS_Store
 __pycache__/
 *.py[cod]
-.evaluation/
-/evaluation/runs/
-/evaluation/cache/
-/evaluation/data/
 .env
 .env.backup
 .env.production

@@ -835,12 +835,6 @@ Inspecciona el baseline nuevo y traslada únicamente los errores aceptados a
 `phpstan-baseline.neon`; no reemplaces el baseline existente sin revisar el diff. Luego
 ejecuta `composer analyse` para confirmar que CI no recibe errores nuevos.
 
-PHPStan carga primero [`phpstan-bootstrap.php`](phpstan-bootstrap.php) mediante
-[`phpstan-environment.neon`](phpstan-environment.neon). Ese bootstrap fija el entorno
-estático (incluidos `APP_ENV=testing`, SQLite en memoria y la configuración de
-proveedores) antes de que Larastan inicialice Laravel; por ello la inferencia del
-contenedor no depende del `.env` personal ni de credenciales externas.
-
 ---
 
 ## 17. Decisiones de diseño y alternativas descartadas
