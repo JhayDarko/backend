@@ -94,6 +94,7 @@ import { AuthService } from './core/auth.service';
         FactNode es una ayuda para contrastar información: no reemplaza tu criterio. Revisa siempre
         las fuentes enlazadas.
       </p>
+      <p><a routerLink="/privacidad">Privacidad y datos</a></p>
     </footer>
 
     <div class="sr-only" role="status" aria-live="polite">{{ a11y.announcement() }}</div>

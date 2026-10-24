@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -5,12 +6,13 @@ import { switchMap } from 'rxjs';
 import { A11yService } from '../core/a11y.service';
 import { ApiService } from '../core/api.service';
 import { errorMessage } from '../core/http';
+import { AnalysisQuota } from '../core/models';
 
 type Mode = 'url' | 'text' | 'image';
 
 @Component({
   selector: 'app-home',
-  imports: [FormsModule],
+  imports: [DatePipe, FormsModule],
   template: `
     <section class="home-page" aria-labelledby="t">
       <header class="home-intro">
@@ -44,6 +46,19 @@ type Mode = 'url' | 'text' | 'image';
           </p>
         </div>
       </header>
+      @if (quota(); as currentQuota) {
+        <p class="hint" role="status">
+          Te quedan {{ currentQuota.remaining }} de {{ currentQuota.limit }} análisis de hoy.
+          En curso: {{ currentQuota.active }} de {{ currentQuota.concurrent_limit }}.
+          El cupo se reinicia
+          <time [attr.datetime]="currentQuota.resets_at">{{
+            currentQuota.resets_at | date: 'shortTime'
+          }}</time>.
+        </p>
+      }
+      @if (quotaError()) {
+        <p class="alert" role="alert">{{ quotaError() }}</p>
+      }
       @if (error()) {
         <p class="alert" role="alert" #errorBox tabindex="-1">{{ error() }}</p>
       }
@@ -347,6 +362,12 @@ export class HomePage {
   protected readonly busy = signal(false);
   protected readonly stage = signal('');
   protected readonly error = signal('');
+  protected readonly quota = signal<AnalysisQuota | null>(null);
+  protected readonly quotaError = signal('');
+
+  constructor() {
+    this.loadQuota();
+  }
 
   protected pick(event: Event): void {
     this.file.set((event.target as HTMLInputElement).files?.[0] ?? null);
@@ -399,6 +420,13 @@ export class HomePage {
           this.a11y.announce(message);
         },
       });
+  }
+
+  private loadQuota(): void {
+    this.api.analysisQuota().subscribe({
+      next: (quota) => this.quota.set(quota),
+      error: (error) => this.quotaError.set(errorMessage(error, 'No se pudo consultar el cupo de análisis.')),
+    });
   }
 
   private validate(): string | null {

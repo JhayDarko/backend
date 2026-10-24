@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AnalysisAlreadyActiveException;
+use App\Exceptions\AnalysisQuotaExceededException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AnalysisResource;
 use App\Http\Resources\AnalysisStatusResource;
-use App\Jobs\AnalyzeArticleJob;
 use App\Models\Analysis;
+use App\Services\AnalysisQuotaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -68,24 +70,20 @@ final class AnalysisController extends Controller
         return new AnalysisStatusResource($analysis);
     }
 
-    public function retry(Analysis $analysis): JsonResponse
+    public function retry(Analysis $analysis, Request $request, AnalysisQuotaService $quota): JsonResponse
     {
         $this->authorize('view', $analysis);
 
-        if ($analysis->status === 'processing') {
+        try {
+            $analysis = $quota->retry($request->user(), $analysis);
+        } catch (AnalysisQuotaExceededException $exception) {
+            return $exception->response();
+        } catch (AnalysisAlreadyActiveException $exception) {
             return response()->json([
-                'message' => 'Analysis is currently processing and cannot be restarted.',
+                'code' => 'analysis_already_active',
+                'message' => $exception->getMessage(),
             ], 409);
         }
-
-        $analysis->update([
-            'status' => 'pending',
-            'error' => null,
-            'completed_at' => null,
-            'started_at' => null,
-        ]);
-
-        AnalyzeArticleJob::dispatch($analysis->id)->onConnection('redis');
 
         return response()->json([
             'message' => 'Analysis has been re-queued for processing.',

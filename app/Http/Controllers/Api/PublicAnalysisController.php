@@ -6,6 +6,7 @@ use App\Actions\StartAnalysis;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreArticleRequest;
 use App\Http\Resources\AnalysisResource;
+use App\Jobs\AnalyzeArticleJob;
 use App\Models\ApiKey;
 use App\Models\ApiUsage;
 use App\Services\Article\ArticleIngestionService;
@@ -40,6 +41,7 @@ final class PublicAnalysisController extends Controller
 
         if ($created) {
             $usage->increment('analyses');
+            AnalyzeArticleJob::dispatch($analysis->id)->onConnection('redis');
         }
 
         return response()->json(['data' => new AnalysisResource($analysis)], $created ? 202 : 200);

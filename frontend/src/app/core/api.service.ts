@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
-import { Analysis, AnalysisStatusInfo, ApiKey, Article, Page, SourceProfile } from './models';
+import { Analysis, AnalysisQuota, AnalysisStatusInfo, ApiKey, Article, Page, SourceProfile } from './models';
 
 const API = '/api/v1';
 
@@ -25,6 +25,10 @@ export class ApiService {
 
   startAnalysis(articleId: number): Observable<Analysis> {
     return this.http.post<{ data: Analysis }>(`${API}/articles/${articleId}/analyze`, {}).pipe(map((r) => r.data));
+  }
+
+  analysisQuota(): Observable<AnalysisQuota> {
+    return this.http.get<{ data: AnalysisQuota }>(`${API}/auth/quota`).pipe(map((r) => r.data));
   }
 
   analysis(id: number): Observable<Analysis> {

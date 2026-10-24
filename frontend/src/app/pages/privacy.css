@@ -1,0 +1,46 @@
+.privacy-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+.privacy-section h2 {
+  margin-bottom: 0.75rem;
+}
+
+.privacy-section p:last-child,
+.privacy-section ul:last-child {
+  margin-bottom: 0;
+}
+
+.privacy-section li + li {
+  margin-top: 0.55rem;
+}
+
+.confirm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-block: 1rem;
+}
+
+.confirm-row input {
+  flex: none;
+  margin-top: 0.25rem;
+}
+
+.delete-form {
+  display: grid;
+  max-width: 420px;
+  gap: 0.6rem;
+}
+
+.delete-form button {
+  justify-self: start;
+  margin-top: 0.35rem;
+}
+
+.google-delete {
+  margin-top: 1.5rem;
+}

@@ -479,9 +479,11 @@ usan esta expiración ni estos límites.
 | `POST /auth/google` | Verifica una credencial de Google; inicia sesión o crea una cuenta passwordless | 10/min |
 | `GET /auth/me` · `POST /auth/logout` | Usuario actual · revoca el token actual | — |
 | `POST /auth/refresh` | Rota el token actual; devuelve `token` y `expires_at` | 10/min |
+| `GET /auth/quota` | Devuelve el cupo diario y análisis activos del usuario | — |
 | `POST /auth/logout-all` | Revoca todos los tokens de sesión del usuario | — |
 | `PUT /auth/password` | Cambia la contraseña y revoca los demás tokens | — |
 | `POST /auth/google/link` · `DELETE /auth/google` | Vincula Google con una sesión activa · desvincula si queda otro método de acceso | 10/min al vincular |
+| `DELETE /account` | Elimina la cuenta y sus datos; requiere contraseña actual o Google recién verificado | 5/min |
 | `POST /articles/ocr` | Sube la captura; PaddleOCR extrae texto y Gemini organiza solo el OCR antes de crear el artículo. El análisis excluye perfil/interfaz y conserva sus textos en metadatos; errores de proveedor `ocr_unavailable`/`gemini_unavailable` (`503`) | 10/min |
 | `GET /analyses/{id}/report/pdf` · `/report/json` | Informe descargable (solo análisis completados; `409` si no) | 20–30/min |
 | `GET /sources` · `GET /sources/{id}/profile` | Credibilidad histórica de los medios según los análisis del sistema | 60/min |
@@ -543,6 +545,17 @@ la vincula automáticamente: responde `409 account_exists`; ingresa con contrase
 Google desde Preferencias. Una cuenta Google sin contraseña no puede desvincular su único
 método de acceso. Si Google no está configurado o no se puede verificar, el endpoint responde
 `503 google_auth_unavailable`; las pruebas usan un verificador falso y no acceden a Google.
+
+Las sesiones web tienen un límite configurable con `ANALYSES_PER_DAY` (10 por defecto) y
+`ANALYSES_CONCURRENT_PER_USER` (2 por defecto). Cada nueva ejecución y cada reintento que
+vuelve a encolar consumen cupo; una solicitud deduplicada que reutiliza un análisis existente
+no lo consume. `GET /api/v1/auth/quota` informa cupo restante, concurrencia activa y el
+instante de reinicio. Los límites de API keys siguen siendo los de `config/plans.php`.
+
+La página pública `/privacidad` resume los datos que guarda la aplicación, su uso por
+proveedores y su eliminación. No hay una purga automática del contenido de análisis; permanece
+hasta que el usuario elimina su cuenta. La eliminación requiere reautenticación con contraseña
+actual o con un ID token de Google emitido en los últimos 5 minutos.
 
 ### 10.1 API pública (API keys y planes)
 
@@ -656,6 +669,8 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | `CACHE_STORE` | `database` |
 | `QUEUE_DEV_WORKERS` | `3` |
 | `AUTH_TOKEN_TTL_MINUTES` | `10080` (7 días) para tokens de sesión web; no afecta las API keys públicas |
+| `ANALYSES_PER_DAY` | `10` análisis diarios por cuenta web |
+| `ANALYSES_CONCURRENT_PER_USER` | `2` análisis `pending`/`processing` simultáneos por cuenta |
 | `GOOGLE_CLIENT_ID` | Client ID OAuth de tipo Web para validar credenciales GIS en el backend |
 | `frontend/src/environments/environment.ts` → `googleClientId` | El mismo Client ID público, compilado en la SPA |
 

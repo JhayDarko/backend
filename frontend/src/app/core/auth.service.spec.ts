@@ -70,6 +70,21 @@ describe('AuthService + interceptor', () => {
     expect(auth.user()?.auth_methods).toEqual(['password']);
   });
 
+  it('sends account deletion reauthentication without persisting the credential', () => {
+    let message: string | undefined;
+    auth.deleteAccount({ credential: 'fresh-google-id-token' }).subscribe((response) => {
+      message = response.message;
+    });
+
+    const request = http.expectOne('/api/v1/account');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toEqual({ credential: 'fresh-google-id-token' });
+    request.flush({ message: 'La cuenta se eliminó.' });
+
+    expect(message).toBe('La cuenta se eliminó.');
+    expect(localStorage.getItem('fresh-google-id-token')).toBeNull();
+  });
+
   it('drops the session when the API answers 401', () => {
     login();
 

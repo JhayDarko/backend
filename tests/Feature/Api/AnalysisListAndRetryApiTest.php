@@ -165,7 +165,8 @@ class AnalysisListAndRetryApiTest extends TestCase
         $response = $this->postJson("/api/v1/analyses/{$analysis->id}/retry");
 
         $response->assertStatus(409)
-            ->assertJsonPath('message', 'Analysis is currently processing and cannot be restarted.');
+            ->assertJsonPath('code', 'analysis_already_active')
+            ->assertJsonPath('message', 'El análisis ya está en curso o en cola.');
 
         Queue::assertNotPushed(AnalyzeArticleJob::class);
     }

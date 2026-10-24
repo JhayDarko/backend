@@ -69,6 +69,7 @@ export function errorMessage(
     const body = error.error as { code?: string; message?: string; errors?: Record<string, string[]> } | null;
     const first = body?.errors ? Object.values(body.errors)[0]?.[0] : undefined;
     if (first) return first;
+    if (body?.code === 'daily_quota_exceeded' && body.message) return body.message;
     if (body?.code && ERROR_CODE_MESSAGES[body.code]) return ERROR_CODE_MESSAGES[body.code];
     if (body?.message) return body.message;
     if (error.status === 0) return 'No hay conexión con el servidor.';

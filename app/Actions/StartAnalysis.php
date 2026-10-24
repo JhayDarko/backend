@@ -2,7 +2,6 @@
 
 namespace App\Actions;
 
-use App\Jobs\AnalyzeArticleJob;
 use App\Models\Analysis;
 use App\Models\Article;
 use Illuminate\Database\QueryException;
@@ -32,8 +31,6 @@ final class StartAnalysis
 
             return [Analysis::where('article_id', $article->id)->where('user_id', $userId)->firstOrFail(), false];
         }
-
-        AnalyzeArticleJob::dispatch($analysis->id)->onConnection('redis');
 
         return [$analysis, true];
     }

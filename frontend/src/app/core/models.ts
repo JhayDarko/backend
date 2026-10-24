@@ -100,6 +100,15 @@ export interface ApiKey {
   usage_30d: { requests: number; analyses: number; errors: number };
 }
 
+export interface AnalysisQuota {
+  used: number;
+  limit: number;
+  remaining: number;
+  active: number;
+  concurrent_limit: number;
+  resets_at: string;
+}
+
 export interface SourceProfile {
   id: number;
   name: string;

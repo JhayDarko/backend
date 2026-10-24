@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AnalysisController;
+use App\Http\Controllers\Api\AnalysisQuotaController;
 use App\Http\Controllers\Api\ApiKeyController;
 use App\Http\Controllers\Api\ArticleAnalysisController;
 use App\Http\Controllers\Api\ArticleController;
@@ -18,12 +20,14 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::get('/auth/quota', AnalysisQuotaController::class);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:auth-refresh');
         Route::put('/auth/password', [AuthController::class, 'changePassword']);
         Route::post('/auth/google/link', [AuthController::class, 'linkGoogle'])->middleware('throttle:10,1');
         Route::delete('/auth/google', [AuthController::class, 'unlinkGoogle']);
+        Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:5,1');
 
         Route::get('/api-keys', [ApiKeyController::class, 'index']);
         Route::post('/api-keys', [ApiKeyController::class, 'store'])->middleware('throttle:10,1');

@@ -39,6 +39,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/preferences').then((m) => m.PreferencesPage),
   },
   {
+    path: 'privacidad',
+    title: 'Privacidad y datos · FactNode',
+    loadComponent: () => import('./pages/privacy').then((m) => m.PrivacyPage),
+  },
+  {
     path: 'ingresar',
     title: 'Ingresar · FactNode',
     canActivate: [guestGuard],

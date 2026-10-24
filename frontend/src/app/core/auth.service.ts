@@ -84,6 +84,10 @@ export class AuthService {
       .pipe(map((response) => this.updateUser(response.data)));
   }
 
+  deleteAccount(credentials: { password?: string; credential?: string }): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>('/api/v1/account', { body: credentials });
+  }
+
   loadCurrentUser(): Observable<User> {
     return this.http.get<{ data: User }>('/api/v1/auth/me').pipe(
       map((response) => this.updateUser(response.data)),

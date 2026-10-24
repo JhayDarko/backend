@@ -187,6 +187,10 @@ export class LoginPage {
       </div>
       <h1 id="t">Crear cuenta</h1>
       <p class="muted">Tu cuenta guarda tu historial de análisis y tus API keys.</p>
+      <p class="muted">
+        El contenido que envíes se procesa para generar análisis. Consulta el
+        <a routerLink="/privacidad">aviso de privacidad</a>.
+      </p>
       @if (error()) {
         <p class="alert" role="alert">{{ error() }}</p>
       }

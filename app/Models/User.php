@@ -23,6 +23,12 @@ class User extends Authenticatable
         return $this->hasMany(Analysis::class);
     }
 
+    /** @return HasMany<UserAnalysisUsage, $this> */
+    public function analysisUsages(): HasMany
+    {
+        return $this->hasMany(UserAnalysisUsage::class);
+    }
+
     public function apiKeys(): HasMany
     {
         return $this->hasMany(ApiKey::class);
