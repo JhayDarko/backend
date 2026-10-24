@@ -50,7 +50,7 @@ return [
     |
     */
 
-    'expiration' => null,
+    'expiration' => max(1, (int) env('AUTH_TOKEN_TTL_MINUTES', 10080)),
 
     /*
     |--------------------------------------------------------------------------

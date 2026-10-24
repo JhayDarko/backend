@@ -467,11 +467,19 @@ Base: `http://127.0.0.1:8000/api/v1` · JSON · `Accept: application/json`
 (Laravel Sanctum). Cada usuario solo ve sus artículos y análisis (políticas `ArticlePolicy` y
 `AnalysisPolicy`); un artículo puede analizarse una vez por usuario (índice único `article_id + user_id`).
 
+Los tokens de sesión web vencen a los 7 días por defecto (`AUTH_TOKEN_TTL_MINUTES`); una solicitud
+protegida con un token vencido devuelve `401` y `code: token_expired`. Login, registro y refresh tienen
+límite de 10 solicitudes por minuto tanto por IP como por correo normalizado. Las API keys públicas no
+usan esta expiración ni estos límites.
+
 | Método y ruta | Descripción | Límite |
 |---|---|---|
 | `POST /auth/register` | Crea cuenta (contraseña ≥ 8 con letras y números) y devuelve `token` | 10/min |
 | `POST /auth/login` | Inicia sesión y devuelve `token` | 10/min |
-| `GET /auth/me` · `POST /auth/logout` | Usuario actual · revoca el token | — |
+| `GET /auth/me` · `POST /auth/logout` | Usuario actual · revoca el token actual | — |
+| `POST /auth/refresh` | Rota el token actual; devuelve `token` y `expires_at` | 10/min |
+| `POST /auth/logout-all` | Revoca todos los tokens de sesión del usuario | — |
+| `PUT /auth/password` | Cambia la contraseña y revoca los demás tokens | — |
 | `POST /articles/ocr` | Sube la captura; PaddleOCR extrae texto y Gemini organiza solo el OCR antes de crear el artículo. El análisis excluye perfil/interfaz y conserva sus textos en metadatos; errores de proveedor `ocr_unavailable`/`gemini_unavailable` (`503`) | 10/min |
 | `GET /analyses/{id}/report/pdf` · `/report/json` | Informe descargable (solo análisis completados; `409` si no) | 20–30/min |
 | `GET /sources` · `GET /sources/{id}/profile` | Credibilidad histórica de los medios según los análisis del sistema | 60/min |
@@ -611,6 +619,7 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | `QUEUE_CONNECTION` | `redis` |
 | `CACHE_STORE` | `database` |
 | `QUEUE_DEV_WORKERS` | `3` |
+| `AUTH_TOKEN_TTL_MINUTES` | `10080` (7 días) para tokens de sesión web; no afecta las API keys públicas |
 
 **IA**
 
@@ -890,6 +899,10 @@ ejecuta `composer analyse` para confirmar que CI no recibe errores nuevos.
 - **Progreso por etapas:** es una aproximación, no un porcentaje exacto.
 - **Despliegue:** este repositorio no configura un entorno productivo; la plataforma y su
   operación deben definirse antes de publicar el servicio.
+- **Límite de autenticación por IP:** login, registro y refresh usan la IP que Laravel obtiene
+  mediante `Request::ip()`. Antes de producción, configurar `trustProxies` con las direcciones
+  reales del proxy/balanceador para que la IP del cliente sea correcta y no confiar cabeceras
+  reenviadas desde orígenes no autorizados.
 - **No implementado** (Product Backlog): EP21 análisis comparativo, EP22 redes sociales, EP25 multilenguaje y
   correcciones publicadas por medio (EP20-HU4).
 

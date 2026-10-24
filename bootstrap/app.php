@@ -3,6 +3,7 @@
 use App\Exceptions\ArticleInputException;
 use App\Exceptions\IngestionProviderUnavailableException;
 use App\Http\Middleware\AuthenticateApiKey;
+use App\Http\Middleware\RejectExpiredSessionToken;
 use App\Http\Middleware\UnescapeJsonUnicode;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(UnescapeJsonUnicode::class);
+        $middleware->append(RejectExpiredSessionToken::class);
         $middleware->trustProxies(at: '*');
         $middleware->alias(['api.key' => AuthenticateApiKey::class]);
     })

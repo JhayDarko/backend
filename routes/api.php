@@ -12,12 +12,15 @@ use App\Http\Controllers\Api\SourceController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
-    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:auth-register');
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth-login');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
+        Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:auth-refresh');
+        Route::put('/auth/password', [AuthController::class, 'changePassword']);
 
         Route::get('/api-keys', [ApiKeyController::class, 'index']);
         Route::post('/api-keys', [ApiKeyController::class, 'store'])->middleware('throttle:10,1');

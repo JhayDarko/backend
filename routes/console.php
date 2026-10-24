@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 // Match the local server limits to the 5 MB OCR upload limit.
 $iniScanDir = implode(PATH_SEPARATOR, array_filter([
@@ -28,3 +29,5 @@ ServeCommand::$passthroughVariables = array_merge(
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

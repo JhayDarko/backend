@@ -11,12 +11,12 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
   ocr_unavailable: 'El servicio de reconocimiento de imágenes no está disponible. Inténtalo de nuevo.',
   gemini_unavailable: 'El servicio de clasificación de texto no está disponible. Inténtalo de nuevo.',
   internal_error: 'Ocurrió un error interno. Inténtalo de nuevo más tarde.',
+  token_expired: 'Tu sesión expiró. Ingresa de nuevo.',
 };
 
 /** Adds the bearer token and drops the session when the API answers 401. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
-  const router = inject(Router);
   const token = auth.token();
   const authed =
     token && req.url.startsWith('/api/')
@@ -26,8 +26,18 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authed).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401 && token && !req.url.includes('/auth/')) {
-        auth.clear();
-        void router.navigate(['/ingresar'], { queryParams: { expired: 1 } });
+        const currentToken = auth.token();
+        if (currentToken && currentToken !== token) {
+          const retry = req.clone({ setHeaders: { Authorization: `Bearer ${currentToken}` } });
+          return next(retry).pipe(
+            catchError((retryError: HttpErrorResponse) => {
+              if (retryError.status === 401) auth.expireSessionIfTokenMatches(currentToken);
+              return throwError(() => retryError);
+            }),
+          );
+        }
+
+        auth.expireSessionIfTokenMatches(token);
       }
       return throwError(() => error);
     }),

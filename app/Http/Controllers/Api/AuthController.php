@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 final class AuthController extends Controller
 {
@@ -48,17 +50,83 @@ final class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()?->delete();
+        $currentToken = $this->persistentToken($request->user()->currentAccessToken());
+        if ($currentToken !== null) {
+            $currentToken->delete();
+        }
 
         return response()->json(['message' => 'Sesión cerrada.']);
     }
 
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $request->user()->tokens()->delete();
+
+        return response()->json(['message' => 'Todas las sesiones se cerraron.']);
+    }
+
+    public function refresh(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $currentToken = $this->persistentToken($user->currentAccessToken());
+
+        if ($currentToken === null) {
+            return response()->json([
+                'code' => 'unauthenticated',
+                'message' => 'Debes iniciar sesión para realizar esta solicitud.',
+            ], 401);
+        }
+
+        return DB::transaction(function () use ($user, $currentToken): JsonResponse {
+            $response = $this->tokenResponse($user);
+            $currentToken->delete();
+
+            return $response;
+        });
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'current_password:sanctum'],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+        ]);
+        $user = $request->user();
+        $currentToken = $this->persistentToken($user->currentAccessToken());
+
+        DB::transaction(function () use ($user, $currentToken, $data): void {
+            $user->password = $data['password'];
+            $user->save();
+
+            if ($currentToken !== null) {
+                $user->tokens()->where('id', '<>', $currentToken->getKey())->delete();
+            } else {
+                $user->tokens()->delete();
+            }
+        });
+
+        return response()->json(['message' => 'Contraseña actualizada.']);
+    }
+
     private function tokenResponse(User $user, int $status = 200): JsonResponse
     {
+        $expiresAt = now()->addMinutes($this->tokenTtlMinutes());
+
         return response()->json([
             'data' => $this->userPayload($user),
-            'token' => $user->createToken('web')->plainTextToken,
+            'token' => $user->createToken('web', ['*'], $expiresAt)->plainTextToken,
+            'expires_at' => $expiresAt->toISOString(),
         ], $status);
+    }
+
+    private function tokenTtlMinutes(): int
+    {
+        return max(1, (int) config('sanctum.expiration', 10080));
+    }
+
+    private function persistentToken(mixed $token): ?PersonalAccessToken
+    {
+        return $token instanceof PersonalAccessToken ? $token : null;
     }
 
     /** @return array<string, mixed> */
