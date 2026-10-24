@@ -667,6 +667,18 @@ parameters:
 			path: app/Jobs/VerifyClaimJob.php
 
 		-
+			message: '#^Offset ''results'' on array\<int, array\<string, mixed\>\> on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Jobs/VerifyClaimJob.php
+
+		-
+			message: '#^Offset ''status'' on array\<int, array\<string, mixed\>\> on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Jobs/VerifyClaimJob.php
+
+		-
 			message: '#^Method App\\Models\\ApiKey\:\:issue\(\) should return array\{static\(App\\Models\\ApiKey\), string\} but returns array\{App\\Models\\ApiKey, non\-falsy\-string\}\.$#'
 			identifier: return.type
 			count: 1
@@ -777,6 +789,12 @@ parameters:
 		-
 			message: '#^Call to an undefined method App\\Services\\FactCheck\\FactCheckService\:\:buildQuery\(\)\.$#'
 			identifier: method.notFound
+			count: 1
+			path: app/Services/FactCheck/FactCheckService.php
+
+		-
+			message: '#^Method App\\Services\\FactCheck\\FactCheckService\:\:verifyClaim\(\) should return array\<int, array\<string, mixed\>\> but returns array\<string, list\<array\>\|string\>\.$#'
+			identifier: return.type
 			count: 1
 			path: app/Services/FactCheck/FactCheckService.php
 
