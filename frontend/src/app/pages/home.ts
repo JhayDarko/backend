@@ -48,24 +48,25 @@ type Mode = 'url' | 'text' | 'image';
       </header>
       @if (quota(); as currentQuota) {
         <p class="hint" role="status">
-          Te quedan {{ currentQuota.remaining }} de {{ currentQuota.limit }} análisis de hoy.
-          En curso: {{ currentQuota.active }} de {{ currentQuota.concurrent_limit }}.
-          El cupo se reinicia
+          Te quedan {{ currentQuota.remaining }} de {{ currentQuota.limit }} análisis de hoy. En
+          curso: {{ currentQuota.active }} de {{ currentQuota.concurrent_limit }}. El cupo se
+          reinicia
           <time [attr.datetime]="currentQuota.resets_at">{{
             currentQuota.resets_at | date: 'shortTime'
-          }}</time>.
+          }}</time
+          >.
         </p>
       }
       @if (quotaError()) {
         <p class="alert" role="alert">{{ quotaError() }}</p>
       }
       @if (error()) {
-        <p class="alert" role="alert" #errorBox tabindex="-1">{{ error() }}</p>
+        <p id="home-error" class="alert" role="alert" #errorBox tabindex="-1">{{ error() }}</p>
       }
 
       <div class="home-layout">
         <form class="card analysis-form stack" (ngSubmit)="submit()" novalidate>
-          <fieldset>
+          <fieldset [attr.aria-describedby]="error() ? 'home-error' : null">
             <legend>¿Cómo quieres ingresar la noticia?</legend>
             <div class="mode-options">
               <label class="choice"
@@ -93,7 +94,8 @@ type Mode = 'url' | 'text' | 'image';
                   type="url"
                   inputmode="url"
                   placeholder="https://medio.com/noticia"
-                  aria-describedby="url-hint"
+                  [attr.aria-invalid]="error() ? 'true' : null"
+                  [attr.aria-describedby]="error() ? 'url-hint home-error' : 'url-hint'"
                   [(ngModel)]="url"
                 />
                 <p id="url-hint" class="hint">Solo páginas públicas (http o https).</p>
@@ -109,7 +111,8 @@ type Mode = 'url' | 'text' | 'image';
                 <textarea
                   id="content"
                   name="content"
-                  aria-describedby="content-hint"
+                  [attr.aria-invalid]="error() ? 'true' : null"
+                  [attr.aria-describedby]="error() ? 'content-hint home-error' : 'content-hint'"
                   [(ngModel)]="content"
                 ></textarea>
                 <p id="content-hint" class="hint">Entre 30 y 65 000 caracteres.</p>
@@ -123,7 +126,8 @@ type Mode = 'url' | 'text' | 'image';
                   name="image"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  aria-describedby="image-hint"
+                  [attr.aria-invalid]="error() ? 'true' : null"
+                  [attr.aria-describedby]="error() ? 'image-hint home-error' : 'image-hint'"
                   (change)="pick($event)"
                 />
                 <p id="image-hint" class="hint">
@@ -383,7 +387,9 @@ export class HomePage {
     }
 
     this.busy.set(true);
-    this.stage.set(this.mode === 'image' ? 'Leyendo y clasificando la captura…' : 'Preparando la noticia…');
+    this.stage.set(
+      this.mode === 'image' ? 'Leyendo y clasificando la captura…' : 'Preparando la noticia…',
+    );
     const article$ =
       this.mode === 'url'
         ? this.api.createArticleFromUrl(this.url.trim())
@@ -425,7 +431,8 @@ export class HomePage {
   private loadQuota(): void {
     this.api.analysisQuota().subscribe({
       next: (quota) => this.quota.set(quota),
-      error: (error) => this.quotaError.set(errorMessage(error, 'No se pudo consultar el cupo de análisis.')),
+      error: (error) =>
+        this.quotaError.set(errorMessage(error, 'No se pudo consultar el cupo de análisis.')),
     });
   }
 
