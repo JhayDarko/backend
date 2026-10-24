@@ -1,4 +1,13 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, inject, output, signal, viewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnDestroy,
+  inject,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { A11yService } from '../core/a11y.service';
@@ -8,12 +17,15 @@ import { GoogleIdentityService } from '../core/google-identity.service';
 
 @Component({
   selector: 'app-google-identity-button',
+  host: { class: 'google-identity-button' },
   template: `
     <div class="google-signin" #host role="group" aria-label="Continuar con Google"></div>
     @if (message()) {
-      <p class="hint" role="status">{{ message() }}</p>
+      <p class="google-identity-message hint" role="status">{{ message() }}</p>
     } @else {
-      <p class="hint">Si cancelas la ventana de Google, puedes continuar con correo y contraseña.</p>
+      <p class="google-identity-message hint">
+        Si cancelas la ventana de Google, puedes continuar con correo y contraseña.
+      </p>
     }
   `,
   styleUrl: './auth.css',
@@ -72,7 +84,7 @@ export class GoogleIdentityButton implements AfterViewInit, OnDestroy {
         <p class="alert info" role="status">Tu sesión expiró. Ingresa de nuevo.</p>
       }
       @if (error()) {
-        <p class="alert" role="alert">{{ error() }}</p>
+        <p id="login-error" class="alert" role="alert">{{ error() }}</p>
       }
       <form (ngSubmit)="submit()" class="stack" novalidate>
         <div>
@@ -84,7 +96,8 @@ export class GoogleIdentityButton implements AfterViewInit, OnDestroy {
             autocomplete="email"
             required
             [(ngModel)]="email"
-            [attr.aria-invalid]="!!error()"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="error() ? 'login-error' : null"
           />
         </div>
         <div>
@@ -96,7 +109,8 @@ export class GoogleIdentityButton implements AfterViewInit, OnDestroy {
             autocomplete="current-password"
             required
             [(ngModel)]="password"
-            [attr.aria-invalid]="!!error()"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="error() ? 'login-error' : null"
           />
         </div>
         <button class="btn" type="submit" [disabled]="busy()">
@@ -105,7 +119,7 @@ export class GoogleIdentityButton implements AfterViewInit, OnDestroy {
       </form>
       <div class="auth-divider"><span>o</span></div>
       <app-google-identity-button (credential)="continueWithGoogle($event)" />
-      <p class="muted">¿No tienes cuenta? <a routerLink="/registro">Crea una</a>.</p>
+      <p class="auth-footer muted">¿No tienes cuenta? <a routerLink="/registro">Crea una</a>.</p>
     </section>
   `,
   styleUrl: './auth.css',
@@ -186,13 +200,13 @@ export class LoginPage {
         <span><strong>Fact</strong><b>Node</b></span>
       </div>
       <h1 id="t">Crear cuenta</h1>
-      <p class="muted">Tu cuenta guarda tu historial de análisis y tus API keys.</p>
-      <p class="muted">
+      <p class="auth-intro muted">Tu cuenta guarda tu historial de análisis y tus API keys.</p>
+      <p class="auth-intro muted">
         El contenido que envíes se procesa para generar análisis. Consulta el
         <a routerLink="/privacidad">aviso de privacidad</a>.
       </p>
       @if (error()) {
-        <p class="alert" role="alert">{{ error() }}</p>
+        <p id="register-error" class="alert" role="alert">{{ error() }}</p>
       }
       <form (ngSubmit)="submit()" class="stack" novalidate>
         <div>
@@ -204,6 +218,8 @@ export class LoginPage {
             autocomplete="name"
             required
             [(ngModel)]="name"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="error() ? 'register-error' : null"
           />
         </div>
         <div>
@@ -215,6 +231,8 @@ export class LoginPage {
             autocomplete="email"
             required
             [(ngModel)]="email"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="error() ? 'register-error' : null"
           />
         </div>
         <div>
@@ -225,8 +243,9 @@ export class LoginPage {
             type="password"
             autocomplete="new-password"
             required
-            aria-describedby="pw-hint"
+            [attr.aria-describedby]="error() ? 'pw-hint register-error' : 'pw-hint'"
             [(ngModel)]="password"
+            [attr.aria-invalid]="error() ? 'true' : null"
           />
           <p id="pw-hint" class="hint">Mínimo 8 caracteres, con letras y números.</p>
         </div>
@@ -239,6 +258,8 @@ export class LoginPage {
             autocomplete="new-password"
             required
             [(ngModel)]="confirmation"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="error() ? 'register-error' : null"
           />
         </div>
         <button class="btn" type="submit" [disabled]="busy()">
@@ -247,7 +268,7 @@ export class LoginPage {
       </form>
       <div class="auth-divider"><span>o</span></div>
       <app-google-identity-button (credential)="continueWithGoogle($event)" />
-      <p class="muted">¿Ya tienes cuenta? <a routerLink="/ingresar">Ingresa</a>.</p>
+      <p class="auth-footer muted">¿Ya tienes cuenta? <a routerLink="/ingresar">Ingresa</a>.</p>
     </section>
   `,
   styleUrl: './auth.css',

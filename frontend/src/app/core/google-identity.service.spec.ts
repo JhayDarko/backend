@@ -22,6 +22,7 @@ describe('GoogleIdentityService', () => {
     const renderButton = vi.fn();
     const service = TestBed.inject(GoogleIdentityService);
     const host = document.createElement('div');
+    vi.spyOn(host, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 360, 40));
     const onCredentialResult = vi.fn();
     const onError = vi.fn();
     const cleanup = service.mountButton(host, onCredentialResult, onError);
@@ -40,7 +41,7 @@ describe('GoogleIdentityService', () => {
     );
     expect(renderButton).toHaveBeenCalledWith(
       host,
-      expect.objectContaining({ text: 'continue_with' }),
+      expect.objectContaining({ text: 'continue_with', width: 360 }),
     );
     onCredential?.({ credential: 'google-id-token' });
     expect(onCredentialResult).toHaveBeenCalledWith('google-id-token');

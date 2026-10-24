@@ -27,6 +27,7 @@ interface GoogleIdentityApi {
           size: 'large';
           text: 'continue_with';
           shape: 'rectangular';
+          width: number;
         },
       ): void;
     };
@@ -80,6 +81,7 @@ export class GoogleIdentityService {
           size: 'large',
           text: 'continue_with',
           shape: 'rectangular',
+          width: Math.min(400, Math.max(120, Math.round(host.getBoundingClientRect().width) || 400)),
         });
       },
       () => {
