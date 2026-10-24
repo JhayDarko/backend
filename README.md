@@ -629,8 +629,10 @@ Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación O
   no usan esta expiración. `POST /auth/refresh` rota el token, logout revoca el actual,
   logout-all revoca todos y cambiar la contraseña revoca los demás. El scheduler ejecuta
   `sanctum:prune-expired --hours=24`.
-- Login, registro y refresh se limitan por IP y correo normalizado. En producción, configura
-  `trustProxies` con los proxies reales para que Laravel obtenga la IP correcta.
+- Login, registro y refresh se limitan por IP y correo normalizado. `TRUSTED_PROXIES` acepta
+  una lista separada por comas de IP/CIDR de los proxies inversos reales; por defecto solo se
+  confía en loopback (`127.0.0.1,::1`). Configúrala en producción con las direcciones de tus
+  proxies y no uses `*`, para evitar que el cliente pueda falsificar su IP.
 - **Sin XSS en el frontend:** Angular escapa las plantillas y los enlaces externos se validan (`safeUrl`, solo http/https).
 - **Cabeceras de seguridad:** no se incluye una configuración de servidor HTTP de producción;
   configurar y verificar headers de seguridad al elegir la plataforma de despliegue.
@@ -647,7 +649,8 @@ Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación O
 ## 12. Interfaz web
 
 - SPA **Angular 21** en `frontend/` (componentes standalone, *signals*, carga perezosa por ruta). Páginas: ingresar /
-  crear cuenta, analizar (URL, texto o **captura de pantalla con OCR**), resultado con progreso por pasos (*polling* a
+  crear cuenta, analizar (URL, texto o **captura de pantalla con OCR**; las capturas se seleccionan o se arrastran a
+  una zona accesible, con validación JPG/PNG/WebP y límite de 5 MB), resultado con progreso por pasos (*polling* a
   `/status` cada 2.5 s), historial con filtros y paginación, credibilidad de fuentes, gestión de API keys,
   preferencias, privacidad y documentación pública de API keys (`/documentacion-api`).
 - El resultado muestra puntaje, veredicto, confianza, síntesis, **limitaciones**, señales y cada afirmación con su
@@ -717,6 +720,7 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | Variable | Valor típico |
 |---|---|
 | `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL (`fn`) |
+| `TRUSTED_PROXIES` | IP/CIDR separados por comas de proxies inversos confiables; por defecto `127.0.0.1,::1`, no uses `*` |
 | `QUEUE_CONNECTION` | `redis` |
 | `CACHE_STORE` | `database` |
 | `QUEUE_DEV_WORKERS` | `3` |
@@ -1006,9 +1010,9 @@ ejecuta `composer analyse` para confirmar que CI no recibe errores nuevos.
 - **Despliegue:** este repositorio no configura un entorno productivo; la plataforma y su
   operación deben definirse antes de publicar el servicio.
 - **Límite de autenticación por IP:** login, registro y refresh usan la IP que Laravel obtiene
-  mediante `Request::ip()`. Antes de producción, configurar `trustProxies` con las direcciones
-  reales del proxy/balanceador para que la IP del cliente sea correcta y no confiar cabeceras
-  reenviadas desde orígenes no autorizados.
+  mediante `Request::ip()`. Antes de producción, configurar `TRUSTED_PROXIES` solo con las IP/CIDR
+  reales del proxy/balanceador para que la IP del cliente sea correcta; no confiar cabeceras
+  reenviadas desde orígenes no autorizados ni usar el comodín `*`.
 - **Sesión absoluta:** los tokens individuales vencen según `AUTH_TOKEN_TTL_MINUTES`, pero no hay
   un máximo de duración desde el login que obligue a autenticarse de nuevo tras una cadena de
   renovaciones.

@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(UnescapeJsonUnicode::class);
         $middleware->append(RejectExpiredSessionToken::class);
-        $middleware->trustProxies(at: '*');
+        $middleware->trustProxies();
         $middleware->alias(['api.key' => AuthenticateApiKey::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -761,9 +761,10 @@ que todos se hayan reproducido en un entorno productivo.
     no hay suscripción/pasarela de pagos en código visible.
 5. **Sin expiración absoluta de sesión.** El TTL del token se aplica a cada emisión/rotación,
     pero no hay un máximo de vida desde el login.
-6. **Pendientes de despliegue:** `trustProxies`, cliente OAuth/orígenes JavaScript/CSP,
-    ejecución de migraciones, HTTPS, almacenamiento persistente para capturas y supervisión de
-    workers no están configurados en este repositorio.
+6. **Pendientes de despliegue:** sustituir el default loopback de `TRUSTED_PROXIES` por las
+    IP/CIDR reales del proxy inverso del entorno productivo,
+    configurar cliente OAuth/orígenes JavaScript/CSP, ejecutar migraciones, establecer HTTPS,
+    almacenamiento persistente para capturas y supervisión de workers.
 7. **Accesibilidad manual no verificada.** Hay pruebas axe automatizadas; teclado, zoom al
     200 % y lector de pantalla aún requieren comprobación manual.
 8. **Calidad/exactitud no medible desde el repositorio.** No se encontró corpus de referencia,

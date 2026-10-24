@@ -544,6 +544,114 @@ html.high-contrast thead th {
   overflow-x: auto;
 }
 
+app-home .upload-label {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+app-home .file-dropzone {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem 1rem;
+  padding: 1.2rem;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 65%, var(--card));
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+app-home .file-dropzone.is-dragging {
+  border-color: var(--cobalto);
+  border-style: solid;
+  background: color-mix(in srgb, var(--cobalto) 10%, var(--card));
+  transform: scale(1.01);
+}
+app-home .file-dropzone.has-file {
+  border-color: var(--turquesa);
+  border-style: solid;
+}
+app-home .upload-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0.45rem;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--cobalto) 12%, var(--card));
+  fill: none;
+  stroke: var(--cobalto);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+app-home .upload-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+app-home .upload-copy strong {
+  overflow-wrap: anywhere;
+}
+app-home .upload-copy span,
+app-home .upload-formats {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+app-home .upload-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+app-home .upload-formats {
+  grid-column: 2 / -1;
+  margin: -0.45rem 0 0;
+}
+app-home .selected-file {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+app-home .file-check {
+  display: grid;
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--turquesa) 18%, var(--card));
+  color: var(--turquesa-text);
+  font-weight: 700;
+}
+app-home .selected-file-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.1rem;
+  overflow-wrap: anywhere;
+}
+app-home .selected-file-name small {
+  color: var(--muted);
+}
+app-home .remove-file {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+app-home .remove-file:hover {
+  border-color: var(--cobalto);
+  color: var(--cobalto);
+}
+
 @media (max-width: 760px) {
   .container {
     width: min(100% - 1.5rem, 1120px);
@@ -551,5 +659,31 @@ html.high-contrast thead th {
   th,
   td {
     padding: 0.65rem 0.55rem;
+  }
+}
+
+@media (max-width: 520px) {
+  app-home .file-dropzone {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  app-home .upload-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  app-home .upload-formats {
+    grid-column: 1 / -1;
+    margin: 0;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  app-home .file-dropzone {
+    transition: none;
+  }
+  app-home .file-dropzone.is-dragging {
+    transform: none;
   }
 }

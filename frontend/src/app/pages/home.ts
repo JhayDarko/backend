@@ -120,24 +120,69 @@ type Mode = 'url' | 'text' | 'image';
             }
             @case ('image') {
               <div>
-                <label for="image">Imagen de la noticia</label>
+                <p id="image-label" class="upload-label">Imagen de la noticia</p>
                 <input
+                  #imageInput
                   id="image"
                   name="image"
+                  class="sr-only"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  [attr.aria-invalid]="error() ? 'true' : null"
-                  [attr.aria-describedby]="error() ? 'image-hint home-error' : 'image-hint'"
+                  aria-hidden="true"
+                  tabindex="-1"
                   (change)="pick($event)"
                 />
+                <div
+                  class="file-dropzone"
+                  [class.is-dragging]="dragging()"
+                  [class.has-file]="file()"
+                  role="group"
+                  aria-labelledby="image-label"
+                  [attr.aria-describedby]="error() ? 'image-hint home-error' : 'image-hint'"
+                  [attr.aria-invalid]="error() ? 'true' : null"
+                  (dragenter)="onDragEnter($event)"
+                  (dragover)="onDragOver($event)"
+                  (dragleave)="onDragLeave($event)"
+                  (drop)="onDrop($event)"
+                >
+                  <svg class="upload-icon" viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M24 31V8m0 0-8 8m8-8 8 8" />
+                    <path d="M10 28v10h28V28" />
+                  </svg>
+                  <div class="upload-copy">
+                    <strong>{{ dragging() ? 'Suelta la imagen aquí' : 'Arrastra tu imagen aquí' }}</strong>
+                    <span>o selecciónala desde tu dispositivo</span>
+                  </div>
+                  <button
+                    class="btn secondary upload-button"
+                    type="button"
+                    aria-controls="image"
+                    (click)="imageInput.click()"
+                  >
+                    Seleccionar archivo
+                  </button>
+                  <p class="upload-formats">JPG, PNG o WebP <span aria-hidden="true">·</span> Máximo 5 MB</p>
+                </div>
                 <p id="image-hint" class="hint">
                   JPG, PNG o WebP, máximo 5 MB. PaddleOCR detectará el texto y Gemini separará
                   automáticamente la noticia del perfil y otros elementos.
                 </p>
                 @if (file()) {
-                  <p>
-                    Archivo seleccionado: <strong>{{ file()!.name }}</strong>
-                  </p>
+                  <div class="selected-file" role="status" aria-live="polite">
+                    <span class="file-check" aria-hidden="true">✓</span>
+                    <span class="selected-file-name">
+                      <strong>{{ file()!.name }}</strong>
+                      <small>{{ formatFileSize(file()!.size) }}</small>
+                    </span>
+                    <button
+                      class="remove-file"
+                      type="button"
+                      aria-label="Quitar imagen seleccionada"
+                      (click)="clearFile(imageInput)"
+                    >
+                      Quitar
+                    </button>
+                  </div>
                 }
               </div>
             }
@@ -191,178 +236,20 @@ type Mode = 'url' | 'text' | 'image';
       </p>
     </section>
   `,
-  styles: `
-    .home-intro {
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-      margin-bottom: 2rem;
-    }
-    .home-mark {
-      display: grid;
-      flex: none;
-      width: 74px;
-      height: 74px;
-      place-items: center;
-      border-radius: 18px;
-      background: var(--tinta);
-      color: #eef2f7;
-    }
-    .home-mark svg {
-      width: 48px;
-      height: 48px;
-    }
-    .open-node {
-      color: var(--ambar-bright);
-    }
-    .home-intro .eyebrow {
-      margin-bottom: 0.35rem;
-    }
-    .home-intro h1 {
-      max-width: 19ch;
-      margin-bottom: 0.55rem;
-    }
-    .intro-copy {
-      max-width: 62ch;
-      margin: 0;
-      color: var(--muted);
-      font-size: 1.05rem;
-    }
-    .home-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.85fr);
-      gap: 1.25rem;
-      align-items: start;
-    }
-    .analysis-form {
-      margin: 0;
-    }
-    .mode-options {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.55rem;
-    }
-    .mode-options .choice {
-      min-height: 48px;
-      justify-content: center;
-      padding: 0.55rem;
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      background: var(--bg);
-    }
-    .mode-options .choice:has(input:checked) {
-      border-color: var(--cobalto);
-      background: color-mix(in srgb, var(--cobalto) 8%, var(--card));
-      color: var(--cobalto);
-    }
-    .mode-options .choice input {
-      flex: none;
-    }
-    .submit-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.8rem;
-      padding-top: 0.25rem;
-    }
-    .submit-row .btn {
-      min-width: 190px;
-    }
-    .how-card {
-      padding: 1.5rem;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--card);
-    }
-    .how-card h2 {
-      margin: 0.25rem 0 0.5rem;
-    }
-    .steps {
-      display: grid;
-      gap: 1.2rem;
-      margin: 1.5rem 0;
-      padding: 0;
-      list-style: none;
-    }
-    .steps li {
-      display: grid;
-      grid-template-columns: 2.3rem 1fr;
-      gap: 0.75rem;
-      align-items: start;
-    }
-    .steps li > span {
-      color: var(--cobalto);
-      font-family: var(--font-head);
-      font-size: 1.2rem;
-      font-weight: 700;
-    }
-    .steps strong {
-      font-family: var(--font-head);
-    }
-    .steps p {
-      margin: 0.15rem 0 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-    .honest-note {
-      margin: 0;
-      padding-top: 1rem;
-      border-top: 1px solid var(--line);
-      color: var(--ambar);
-      font-weight: 600;
-    }
-    .honest-note span {
-      margin-right: 0.3rem;
-      font-size: 1.1rem;
-    }
-    .home-disclaimer {
-      margin: 1.1rem 0 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-    @media (max-width: 820px) {
-      .home-layout {
-        grid-template-columns: 1fr;
-      }
-    }
-    @media (max-width: 520px) {
-      .home-intro {
-        align-items: flex-start;
-        gap: 0.85rem;
-      }
-      .home-mark {
-        width: 54px;
-        height: 54px;
-        border-radius: 13px;
-      }
-      .home-mark svg {
-        width: 36px;
-        height: 36px;
-      }
-      .home-intro h1 {
-        font-size: 1.8rem;
-      }
-      .mode-options {
-        gap: 0.35rem;
-      }
-      .mode-options .choice {
-        gap: 0.35rem;
-        padding: 0.45rem 0.25rem;
-        font-size: 0.9rem;
-      }
-    }
-  `,
+  styleUrl: './home.css',
 })
 export class HomePage {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly a11y = inject(A11yService);
+  private dragDepth = 0;
 
   protected mode: Mode = 'url';
   protected url = '';
   protected title = '';
   protected content = '';
   protected readonly file = signal<File | null>(null);
+  protected readonly dragging = signal(false);
   protected readonly busy = signal(false);
   protected readonly stage = signal('');
   protected readonly error = signal('');
@@ -373,8 +260,73 @@ export class HomePage {
     this.loadQuota();
   }
 
+  private acceptFile(file: File | null): void {
+    this.error.set('');
+    if (!file) {
+      this.file.set(null);
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      const message = 'El archivo debe ser una imagen JPG, PNG o WebP.';
+      this.file.set(null);
+      this.error.set(message);
+      this.a11y.announce(message);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      const message = 'La imagen no puede superar 5 MB.';
+      this.file.set(null);
+      this.error.set(message);
+      this.a11y.announce(message);
+      return;
+    }
+
+    this.file.set(file);
+    this.a11y.announce(`Imagen seleccionada: ${file.name}`);
+  }
+
   protected pick(event: Event): void {
-    this.file.set((event.target as HTMLInputElement).files?.[0] ?? null);
+    const input = event.target as HTMLInputElement;
+    this.acceptFile(input.files?.[0] ?? null);
+    input.value = '';
+  }
+
+  protected onDragEnter(event: DragEvent): void {
+    event.preventDefault();
+    this.dragDepth += 1;
+    this.dragging.set(true);
+  }
+
+  protected onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    // Drag events bubble between descendants; depth prevents flickering while moving inside the zone.
+    this.dragDepth = Math.max(0, this.dragDepth - 1);
+    this.dragging.set(this.dragDepth > 0);
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.dragDepth = 0;
+    this.dragging.set(false);
+    this.acceptFile(event.dataTransfer?.files[0] ?? null);
+  }
+
+  protected clearFile(input: HTMLInputElement): void {
+    this.file.set(null);
+    input.value = '';
+    this.error.set('');
+  }
+
+  protected formatFileSize(size: number): string {
+    return size < 1024 * 1024
+      ? `${Math.max(1, Math.round(size / 1024))} KB`
+      : `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   protected submit(): void {
@@ -454,6 +406,6 @@ export class HomePage {
     }
     const file = this.file();
     if (!file) return 'Selecciona una imagen.';
-    return file.size <= 5 * 1024 * 1024 ? null : 'La imagen no puede superar 5 MB.';
+    return null;
   }
 }
