@@ -6,7 +6,6 @@ use App\Contracts\AiProviderInterface;
 use App\Exceptions\AiProviderException;
 use App\Services\AI\DTO\ExtractedClaimsResponse;
 use App\Services\AI\GeminiModelCircuit;
-use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -157,22 +156,7 @@ final class GeminiProvider implements AiProviderInterface
         }
 
         try {
-            $result = $this->handleResponse($response);
-
-            return new ExtractedClaimsResponse(
-                summary: $result->summary,
-                claims: $result->claims,
-                entities: $result->entities,
-                sources: $result->sources,
-                redFlags: $result->redFlags,
-                rawData: config('evaluation.active')
-                    ? $result->rawData + [
-                        'usageMetadata' => $response->json('usageMetadata'),
-                        'response_headers' => app(EvaluationSnapshotSanitizer::class)
-                            ->rateLimitHeaders($response->headers()),
-                    ]
-                    : $result->rawData,
-            );
+            return $this->handleResponse($response);
         } catch (AiProviderException $exception) {
             Log::error('Claim extraction failed', [
                 'provider' => $this->getName(),

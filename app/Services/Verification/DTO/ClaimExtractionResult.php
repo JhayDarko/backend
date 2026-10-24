@@ -9,7 +9,6 @@ final class ClaimExtractionResult
      * @param  array<int, array{name: string, type: string}>  $entities
      * @param  array<int, array{name: string, url?: string|null}>  $sources
      * @param  array<int, string>  $redFlags
-     * @param  array<string, mixed>  $providerMetadata
      */
     public function __construct(
         public readonly string $summary,
@@ -18,7 +17,6 @@ final class ClaimExtractionResult
         public readonly array $sources,
         public readonly array $redFlags,
         public readonly string $promptVersion,
-        public readonly array $providerMetadata = [],
     ) {}
 
     /**

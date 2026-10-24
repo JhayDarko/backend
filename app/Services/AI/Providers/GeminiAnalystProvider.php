@@ -13,7 +13,6 @@ use App\Models\ClaimVerification;
 use App\Models\Evidence;
 use App\Models\ModelPrediction;
 use App\Services\AI\GeminiModelCircuit;
-use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use App\Services\Search\SourceDomainPolicy;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
@@ -441,13 +440,7 @@ PROMPT;
             biasIndicators: (array) ($decoded['bias_indicators'] ?? []),
             keyFindings: (array) ($decoded['key_findings'] ?? []),
             suggestedVerdict: (string) ($decoded['suggested_verdict'] ?? 'inconclusive'),
-            rawResponse: config('evaluation.active')
-                ? $decoded + [
-                    'usageMetadata' => $response->json('usageMetadata'),
-                    'response_headers' => app(EvaluationSnapshotSanitizer::class)
-                        ->rateLimitHeaders($response->headers()),
-                ]
-                : $decoded,
+            rawResponse: $decoded,
         );
     }
 }
