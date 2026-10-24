@@ -277,7 +277,7 @@ erDiagram
 | Tabla | Campos clave y restricciones |
 |---|---|
 | `sources` | `domain` (único lógico), `name`, `type`, `reputation_score`, `country` |
-| `articles` | `source_id` (nullable para texto pegado), `url` (nullable), `canonical_url`, `title`, `content`, `content_hash`, `language`, `metadata` |
+| `articles` | `source_id` (nullable para texto pegado), `url` (nullable), `canonical_url`, `title`, `title_source` (`extracted/user/ai/fallback`), `content`, `content_hash`, `language`, `metadata` |
 | `analyses` | `article_id` + `user_id` **únicos**, `status` (`pending/processing/completed/failed`), `final_verdict`, `credibility_score`, `confidence_score`, `algorithm_version`, `started_at/completed_at`, `error`, `metadata`, `user_id` nullable |
 | `claims` | `analysis_id`, `text`, `type`, `importance` (0–1), `verifiable`, `context`, `fingerprint`, `metadata` |
 | `claim_verifications` | `claim_id`, `relation` (`external_fact_check` o `search_evidence`), `provider`, `status` (`matched/no_match`), `raw_rating`, `normalized_rating`, `publisher`, `fact_check_url`, `fingerprint` **único** |
@@ -497,11 +497,18 @@ usan esta expiración ni estos límites.
 | `POST /articles` | Crea artículo (`url` **o** `content`, opcional `title`, `author_name`; también `text/plain`). `201` | 10/min |
 | `GET /articles` | Lista (filtros `search`, `domain`; `per_page` ≤100; `pagination=cursor`) | 60/min |
 | `GET /articles/{id}` | Detalle con medio y análisis | 60/min |
+| `PATCH /articles/{id}` | Renombra el título del artículo propio (máximo 150 caracteres) | 20/min |
 | `POST /articles/{id}/analyze` | Inicia análisis. `202` nuevo / `200` si ya existía | 20/min |
 | `GET /analyses` | Lista (filtros `status`, `final_verdict`, `article_id`) | 60/min |
 | `GET /analyses/{id}` | Informe completo (score, claims, verificaciones, evidencias) | 60/min |
 | `GET /analyses/{id}/status` | Estado liviano para *polling* (`step`, `progress`, `error`) | 120/min |
 | `POST /analyses/{id}/retry` | Reencola un análisis (`409` si está procesando) | 20/min |
+
+Los títulos de URL provienen de la extracción; los de texto pegado y OCR pueden recibir una
+sugerencia neutral de Gemini durante la extracción de afirmaciones, sin una llamada adicional.
+Si no hay título fiable se conserva el fallback determinista. `title_source` identifica si el
+título fue `extracted`, `user`, `ai` o `fallback`; editarlo lo marca como `user`. El título no se
+incluye en el contenido ni en su `content_hash`, y BERT recibe solo el contenido del artículo.
 
 `PUT /auth/preferences` guarda las preferencias permitidas del perfil. Los valores admitidos
 son tema (`system`, `light`, `dark`), escala de texto (`0.9`, `1`, `1.15`, `1.3`), alto
@@ -718,6 +725,7 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | `ANALYSES_CONCURRENT_PER_USER` | `2` análisis `pending`/`processing` simultáneos por cuenta |
 | `GOOGLE_CLIENT_ID` | Client ID OAuth de tipo Web para validar credenciales GIS en el backend; puede dejarse vacío si no se habilita Google |
 | `frontend/src/environments/environment.ts` → `googleClientId` | El mismo Client ID público, compilado en la SPA |
+| `frontend/src/environments/environment.ts` → `apiBaseUrl` | Origen base opcional para los ejemplos de la guía pública; vacío usa el origen actual del navegador |
 
 **IA**
 
