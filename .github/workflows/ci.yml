@@ -168,7 +168,11 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npx ng build --configuration production
+        timeout-minutes: 5
       - run: npx ng test --watch=false
+        timeout-minutes: 5
+        env:
+          CI: "true"
 
   security:
     name: Security audits

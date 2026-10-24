@@ -73,52 +73,7 @@ import { errorMessage } from '../core/http';
       <p class="muted">¿No tienes cuenta? <a routerLink="/registro">Crea una</a>.</p>
     </section>
   `,
-  styles: `
-    .narrow {
-      max-width: 480px;
-      margin-inline: auto;
-    }
-    .auth-card {
-      padding: clamp(1.4rem, 4vw, 2rem);
-    }
-    .auth-brand {
-      display: flex;
-      align-items: center;
-      gap: 0.7rem;
-      margin-bottom: 1.25rem;
-      font-family: var(--font-head);
-      font-size: 1.35rem;
-      letter-spacing: -0.04em;
-    }
-    .auth-brand strong {
-      font-weight: 400;
-    }
-    .auth-brand b {
-      font-weight: 700;
-    }
-    .auth-mark {
-      display: grid;
-      width: 42px;
-      height: 42px;
-      place-items: center;
-      border-radius: 11px;
-      background: var(--tinta);
-      color: #eef2f7;
-    }
-    .auth-mark svg {
-      width: 30px;
-      height: 30px;
-    }
-    .open-node {
-      color: var(--ambar-bright);
-    }
-    .auth-card h1 {
-      margin-bottom: 1rem;
-    }
-    .auth-card form {
-      margin: 1rem 0;
-    }
-  `,
+  styleUrl: './auth.css',
 })
 export class LoginPage {
   private readonly auth = inject(AuthService);
@@ -239,52 +194,7 @@ export class LoginPage {
       <p class="muted">¿Ya tienes cuenta? <a routerLink="/ingresar">Ingresa</a>.</p>
     </section>
   `,
-  styles: `
-    .narrow {
-      max-width: 480px;
-      margin-inline: auto;
-    }
-    .auth-card {
-      padding: clamp(1.4rem, 4vw, 2rem);
-    }
-    .auth-brand {
-      display: flex;
-      align-items: center;
-      gap: 0.7rem;
-      margin-bottom: 1.25rem;
-      font-family: var(--font-head);
-      font-size: 1.35rem;
-      letter-spacing: -0.04em;
-    }
-    .auth-brand strong {
-      font-weight: 400;
-    }
-    .auth-brand b {
-      font-weight: 700;
-    }
-    .auth-mark {
-      display: grid;
-      width: 42px;
-      height: 42px;
-      place-items: center;
-      border-radius: 11px;
-      background: var(--tinta);
-      color: #eef2f7;
-    }
-    .auth-mark svg {
-      width: 30px;
-      height: 30px;
-    }
-    .open-node {
-      color: var(--ambar-bright);
-    }
-    .auth-card h1 {
-      margin-bottom: 1rem;
-    }
-    .auth-card form {
-      margin: 1rem 0;
-    }
-  `,
+  styleUrl: './auth.css',
 })
 export class RegisterPage {
   private readonly auth = inject(AuthService);
