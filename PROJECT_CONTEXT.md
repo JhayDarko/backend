@@ -49,8 +49,8 @@ descripción funcional está en [`README.md`](README.md), la UI en
 |---|---|---|
 | Ingesta URL/texto e informes de análisis | Implementados en controladores, servicios, jobs, recursos y pruebas | Cobertura de producción y éxito con sitios web reales: **No determinado** |
 | Análisis asíncrono por afirmación, búsqueda, fact-check, puntaje y reporte | Pipeline implementado; hay pruebas unitarias y de feature | Exactitud estadística del veredicto: **No determinado**; no se encontró corpus etiquetado |
-| Cuentas, Sanctum, propiedad por usuario y API keys/planes | Endpoints y lógica implementados | Uso real, políticas comerciales o escalamiento: **No determinado** |
-| Frontend Angular | SPA con inicio de sesión, análisis, historial, fuentes, API y preferencias | Pruebas de usabilidad/accesibilidad con personas: **No determinado** |
+| Cuentas, Sanctum, Google Identity, preferencias, cuotas y borrado | Endpoints y lógica implementados; los tokens de sesión tienen vencimiento y rotación; API keys son independientes | Uso real, políticas comerciales o escalamiento: **No determinado** |
+| Frontend Angular | SPA pública y autenticada, documentación de API keys, preferencias y pruebas automatizadas axe | Pruebas manuales de usabilidad/accesibilidad con personas: **No determinado** |
 | OCR | PaddleOCR local extrae líneas; Gemini organiza las líneas de texto antes de la ingesta | Calidad en capturas variadas: **No determinado**; Gemini no recibe la imagen |
 | Microservicio BERT | Servicio de clasificación Python, carga un modelo Hugging Face | Calidad/calibración del modelo en el corpus del proyecto: **No determinado** |
 | CI | Hay un workflow para validar backend y frontend | Que la última ejecución haya pasado: **No determinado** |
@@ -95,9 +95,10 @@ lockfiles enlazados arriba.
 | Google Gemini | Extracción estructurada de claims, síntesis final del analista y organización de texto OCR | `GEMINI_API_KEY*`, `GEMINI_MODEL`, modelos de respaldo y timeouts; integración HTTP en `app/Services/AI/Providers/`, `app/Services/AI/Providers/GeminiAnalystProvider.php` y `app/Services/OCR/GeminiImageTextClassifier.php` |
 | OpenAI | Respaldo opcional para extracción de claims si el proveedor primario da rate limit | `OPENAI_API_KEY`, modelo y timeout; `app/Services/AI/Providers/OpenAiProvider.php` |
 | Google Fact Check Tools API | Búsqueda de revisiones editoriales publicadas | `GOOGLE_FACT_CHECK_*`; `app/Services/FactCheck/GoogleFactCheckProvider.php` |
-| Tavily y Brave Search | Búsqueda de evidencia secundaria; manager prueba principal y respaldo configurados | `TAVILY_*`, `BRAVE_*`, `SEARCH_PROVIDER_*`; `app/Services/Search/` |
+| Tavily y Brave Search | Búsqueda secundaria; Tavily es configurable y Brave es opcional/desactivado por defecto | `TAVILY_*`, `BRAVE_*`, `SEARCH_PROVIDER_*`; `app/Services/Search/` |
+| Google Identity Services | El navegador obtiene un ID token y Laravel verifica su firma/claims; no hay redirección OAuth ni persistencia de la credencial | `GOOGLE_CLIENT_ID` y `google/auth`; `app/Services/Auth/` |
 | Hugging Face | Descarga del modelo BERT configurado | Modelo predeterminado `Juanillaberia/spanish-fake-news-classifier`; `ml_service/app/main.py` |
-| Google Fonts | Tipografías IBM Plex Sans y Space Grotesk | Referenciadas desde [`frontend/src/index.html`](frontend/src/index.html) |
+| Fuentes web | IBM Plex Sans, Space Grotesk y Atkinson Hyperlegible se sirven desde archivos locales; no se carga Google Fonts | [`frontend/src/styles.css`](frontend/src/styles.css), `frontend/public/fonts/` |
 
 El OCR de PaddleOCR corre localmente en el microservicio. En el flujo vigente, Laravel envía
 **solo las líneas de texto OCR numeradas** a Gemini: no envía imagen, cajas ni coordenadas.
@@ -135,7 +136,7 @@ flowchart LR
   W --> PG
   W --> BERT["FastAPI BERT"]
   W --> FC["Google Fact Check"]
-  W --> WEB["Tavily / Brave"]
+  W --> WEB["Tavily / Brave opcional"]
   W --> G
   L --> FILES["Storage local / volumen app_storage"]
 ```
@@ -232,20 +233,24 @@ Archivos de navegación/frontend importantes: [`frontend/src/app/app.routes.ts`]
 
 ### 5.1 Autenticación, cuenta y propiedad
 
-**Responsabilidad:** registrar e iniciar sesión, emitir tokens Sanctum, devolver el usuario actual
-y revocar el token actual. `AuthController` valida contraseña y genera tokens;
-`AuthService` guarda token y datos de usuario en `localStorage`; el interceptor añade el token
-de sesión a las solicitudes autenticadas y elimina la sesión local ante un 401. Rutas Angular
-protegidas por `authGuard` y `guestGuard`.
+**Responsabilidad:** registro/login local y con Google, rotación y revocación de tokens,
+preferencias de perfil, vinculación/desvinculación de Google, cuotas y borrado reautenticado de
+cuenta. Los tokens de sesión Sanctum se emiten con `expires_at` (7 días por defecto,
+`AUTH_TOKEN_TTL_MINUTES`) y se limpian con `sanctum:prune-expired --hours=24`; las API keys
+públicas no usan esa expiración. `AuthService` guarda el token y datos del usuario en
+`localStorage`, sincroniza la rotación entre pestañas y limpia la sesión ante un 401 no
+recuperable. Rutas Angular protegidas por `authGuard` y `guestGuard`.
 
 **Archivos:** [`AuthController.php`](app/Http/Controllers/Api/AuthController.php),
 [`AuthService`](frontend/src/app/core/auth.service.ts),
 [`http.ts`](frontend/src/app/core/http.ts), [`app.routes.ts`](frontend/src/app/app.routes.ts),
 [`ArticlePolicy.php`](app/Policies/ArticlePolicy.php), [`AnalysisPolicy.php`](app/Policies/AnalysisPolicy.php).
 
-**Dependencias/flujo:** Laravel `auth:sanctum` resuelve usuario; las políticas comprueban
-propiedad o visibilidad. `Article::visibleTo` considera artículos creados por el usuario o con
-un análisis suyo. Un análisis queda asociado al usuario por `analyses.user_id`.
+**Dependencias/flujo:** Laravel `auth:sanctum` resuelve usuario; el verificador Google valida
+firma, `iss`, `aud`, `exp` y `email_verified`. Las políticas comprueban propiedad o
+visibilidad; la deduplicación de artículos se limita al usuario. Las sesiones tienen límites
+por IP y correo, cuotas diarias/concurrentes y preferencias de tema, tipografía, contraste,
+movimiento, interlineado y densidad.
 
 ### 5.2 Ingesta de noticias
 
@@ -256,11 +261,15 @@ reutilizar artículos que ya tengan la misma URL canónica o huella de contenido
   con timeout y extrae JSON-LD, Open Graph, título, descripción, cuerpo, autor, fecha, idioma,
   canonical URL y metadatos. `DomainNormalizer` obtiene host y quita `www.`.
 - Texto: acepta JSON con `content` y opcionales `title`/`author_name`; también adapta
-  `text/plain` al campo `content`. El título se deriva del texto si no se envía.
+  `text/plain` al campo `content`. Texto pegado y OCR reciben un título de reserva si no se
+  envía uno; la extracción de claims de Gemini puede sugerir título en esa misma llamada.
+  `title_source` distingue `extracted`, `user`, `ai` y `fallback`. El título no se concatena al
+  contenido que analiza el pipeline ni al `content_hash`.
 - Imagen: valida JPG/JPEG/PNG/WebP hasta 5 MiB; PaddleOCR devuelve texto, cajas y scores. El
   cliente PHP normaliza líneas y envía a Gemini solo `{id,text}`. Gemini clasifica las líneas
   como `news`, `image_text`, `profile` o `other`; el artículo conserva `news` y `image_text`.
-  El perfil/interfaz se guardan en metadatos; se conserva la captura en `ocr-images`.
+  El perfil/interfaz se guardan en metadatos; se conserva la captura en `ocr-images` hasta la
+  eliminación de cuenta, que también borra los archivos propios.
 
 **Archivos:** [`ArticleController.php`](app/Http/Controllers/Api/ArticleController.php),
 [`StoreArticleRequest.php`](app/Http/Requests/StoreArticleRequest.php),
@@ -362,10 +371,12 @@ revocar claves. El comando `php artisan apikeys:plan {id} {free|pro}` cambia el 
 ### 5.8 Interfaz Angular
 
 Rutas lazy-loaded en `frontend/src/app/app.routes.ts`: inicio/análisis nuevo, resultado,
-historial, fuentes, API keys, preferencias, login y registro. `ApiService` mapea endpoints,
-`AuthService` gestiona sesión, y `A11yService` persiste tema, escala tipográfica, contraste y
-movimiento reducido en el navegador. Los componentes se implementan principalmente con
-templates/estilos inline en `frontend/src/app/pages/*.ts`; estilos globales en
+historial, fuentes, API keys, documentación pública de API (`/documentacion-api`), privacidad,
+preferencias, login y registro. `ApiService` mapea endpoints, `AuthService` gestiona sesión, y
+`A11yService` persiste tema, escala tipográfica, contraste, movimiento, interlineado, densidad y
+fuente en el navegador. La preferencia se carga antes del primer render mediante
+`frontend/public/preferences-bootstrap.js`; Atkinson Hyperlegible se autoaloja. Los estilos de
+componentes se mantienen en hojas compartidas o archivos `styleUrl`, además de
 `frontend/src/styles.css`.
 
 ## 6. Modelo de datos
@@ -377,9 +388,11 @@ la etapa de migraciones de CI usan PostgreSQL; PHPUnit usa SQLite en memoria.
 
 | Tabla / modelo | Campos principales | Relaciones y restricciones relevantes |
 |---|---|---|
-| `users` / User | `name`, `email`, `password`, `email_verified_at`, `remember_token` | `email` único; tiene análisis, artículos creados y API keys |
+| `users` / User | `name`, `email`, `password` nullable, `email_verified_at`, `preferences` | `email` único; tiene análisis, artículos creados, API keys, tokens y cuentas sociales |
+| `social_accounts` / SocialAccount | `user_id`, `provider`, `provider_user_id`, `email` | `provider + provider_user_id` único; FK a users |
+| `user_analysis_usages` / UserAnalysisUsage | `user_id`, `date`, `analyses` | unique `(user_id, date)`; contador diario para cuota de sesión |
 | `sources` / Source | `name`, `domain`, `url`, `type`, `country`, `language`, `description`, `reputation_score` | `domain` único; una fuente tiene muchos artículos y evidencias |
-| `articles` / Article | `source_id`, `created_by`, `url`, `canonical_url`, `title`, `description`, `content`, `author_name`, `published_at`, `language`, `content_hash`, `metadata` | `source_id` nullable → sources (`nullOnDelete`); `created_by` nullable → users (`nullOnDelete`); `content_hash` indexado pero no declarado único |
+| `articles` / Article | `source_id`, `created_by`, `url`, `canonical_url`, `title`, `title_source`, `description`, `content`, `author_name`, `published_at`, `language`, `content_hash`, `metadata` | `title_source`: `extracted/user/ai/fallback`; `source_id` y `created_by` nullable; deduplicación de contenido se limita al usuario |
 | `analyses` / Analysis | `article_id`, `user_id`, `status`, provider/model, `algorithm_version`, scores, `final_verdict`, timestamps, `error` | article/user FKs nullable según las migraciones; unicidad compuesta `article_id + user_id`; cascading al borrar article, user se hace null |
 | `claims` / Claim | `analysis_id`, `text`, `type`, `importance`, `verifiable`, `context`, `fingerprint`, `metadata` y campos históricos `verdict`, `confidence`, `position` | FK cascading a analyses; unique `(analysis_id, fingerprint)`; índices por `type`, `verifiable` y `fingerprint` |
 | `evidences` / Evidence | `source_id`, `url`, `title`, `content`, `snippet`, `published_at`, `retrieved_at`, `content_hash`, `similarity`, `metadata` | `source_id` nullable; `url` única; `content_hash` indexado |
@@ -409,6 +422,8 @@ erDiagram
   USERS ||--o{ ARTICLES : created_by
   USERS ||--o{ ANALYSES : owns
   USERS ||--o{ API_KEYS : issues
+  USERS ||--o{ SOCIAL_ACCOUNTS : links
+  USERS ||--o{ USER_ANALYSIS_USAGES : consumes
   SOURCES o|--o{ ARTICLES : publishes
   SOURCES o|--o{ EVIDENCES : identifies
   ARTICLES ||--o{ ANALYSES : analyzed_for_each_user
@@ -431,6 +446,9 @@ erDiagram
 - `2026_09_22_*`: URL de artículo nullable, necesario para texto pegado.
 - `2026_10_20_*`: tokens Sanctum, ownership por usuario y tablas de API keys/consumo. La
   unicidad de análisis se cambia a `(article_id,user_id)`.
+- `2026_10_21_*`: metadatos de análisis y alcance por usuario de la deduplicación de artículos.
+- `2026_10_24_*`: contraseña nullable y cuentas sociales; uso diario de análisis por usuario;
+  `articles.title_source` y preferencias de usuario.
 
 Al cambiar el esquema, verificar `up()` y `down()` en la migración nueva y actualizar factories,
 resources y pruebas afectadas.
@@ -447,8 +465,16 @@ Sanctum, salvo registro e inicio de sesión. Base de API pública: `/api/public/
 |---|---|---|---|---|
 | `POST /auth/register` | `AuthController::register` | `name`, `email`, `password`, `password_confirmation` | No; 10/min | `201`, usuario + token; errores de validación `422` |
 | `POST /auth/login` | `AuthController::login` | `email`, `password` | No; 10/min | `200`, usuario + token; credenciales inválidas `422` |
+| `POST /auth/google` | `AuthController::google` | `credential` (ID token GIS) | No; 10/min | `200/201`; `409 account_exists` no vincula una cuenta local automáticamente |
 | `GET /auth/me` | `AuthController::me` | — | Sanctum | `200 {data: user}` |
 | `POST /auth/logout` | `AuthController::logout` | — | Sanctum | Revoca token actual; mensaje JSON |
+| `POST /auth/refresh` | `AuthController::refresh` | — | Sanctum; 10/min por IP y correo | Rota el token; entrega nuevo `token` y `expires_at` |
+| `POST /auth/logout-all` | `AuthController::logoutAll` | — | Sanctum | Revoca todos los tokens |
+| `PUT /auth/password` | `AuthController::changePassword` | `current_password`, `password`, `password_confirmation` | Sanctum | Cambia contraseña y revoca los demás tokens |
+| `PUT /auth/preferences` | `AuthController::updatePreferences` | objeto `preferences` con valores permitidos | Sanctum | Persiste preferencias; `422 invalid_preferences` |
+| `GET /auth/quota` | `AnalysisQuotaController` | — | Sanctum | Uso, restante, concurrencia y `resets_at` |
+| `POST /auth/google/link` · `DELETE /auth/google` | `AuthController` | credencial Google para vincular | Sanctum | Vincula o desvincula si queda otro método de acceso |
+| `DELETE /account` | `AccountController::destroy` | contraseña actual o credencial Google reciente | Sanctum; 5/min | Elimina cuenta y datos propios después de reautenticar |
 | `GET /api-keys` | `ApiKeyController::index` | — | Sanctum | `data` claves activas, límites y uso de 30 días |
 | `POST /api-keys` | `ApiKeyController::store` | `name` (≤80) | Sanctum; 10/min | `201`; clave plana solo en esta respuesta; límite de 5 claves activas |
 | `DELETE /api-keys/{apiKey}` | `ApiKeyController::destroy` | ID de clave | Sanctum | Marca `revoked_at`; `403` si pertenece a otra persona |
@@ -458,6 +484,7 @@ Sanctum, salvo registro e inicio de sesión. Base de API pública: `/api/public/
 | `POST /articles` | `ArticleController::store` | `url` o `content` (30–65 000), `title`, `author_name`; admite `text/plain` | Sanctum; 10/min | `201 ArticleResource`; errores de validación/proceso |
 | `POST /articles/ocr` | `OcrController::store` | multipart `image`, JPG/JPEG/PNG/WebP, ≤5 MiB | Sanctum; 10/min | `201 ArticleResource`; OCR/clasificación falla con `503`, entrada/texto insuficiente `422` |
 | `GET /articles/{article}` | `ArticleController::show` | ID article | Sanctum + `ArticlePolicy` | `200 ArticleResource`; no visible `403` |
+| `PATCH /articles/{article}` | `ArticleController::updateTitle` | ID article, `title` ≤150 | Propietario; 20/min | Actualiza título y asigna `title_source=user` |
 | `POST /articles/{article}/analyze` | `ArticleAnalysisController::store` | ID article, cuerpo vacío | Sanctum + política; 20/min | `202` nuevo o `200` ya existente; `AnalysisResource` |
 | `GET /analyses` | `AnalysisController::index` | `status`, `final_verdict`, `article_id`, `per_page`, cursor/page | Sanctum; 60/min | Lista paginada de análisis del usuario |
 | `GET /analyses/{analysis}` | `AnalysisController::show` | ID analysis | Sanctum + `AnalysisPolicy`; 60/min | AnalysisResource con artículo, score, claims, verificaciones y evidencias |
@@ -487,6 +514,10 @@ El contrato estático completo es [`public/api-docs/openapi.yaml`](public/api-do
 Las rutas `/`, `/up` y `/api-docs/openapi.yaml` son endpoints de estado/documentación fuera
 del grupo anterior: `/` devuelve nombre/docs/health JSON; `/up` es el health endpoint de Laravel;
 OpenAPI es un archivo estático en `public/api-docs/`.
+
+La API de sesión y cuenta se documenta en este README, no en OpenAPI. La API pública no añadió
+rutas en la Fase 4; el contrato OpenAPI incluye la procedencia del título en el artículo de la
+respuesta del informe (`title_source`: `extracted`, `user`, `ai` o `fallback`).
 
 ## 8. Flujos principales de extremo a extremo
 
@@ -602,10 +633,12 @@ valores exactos, consultar los archivos de ejemplo y `config/`.
 | BERT | `ML_SERVICE_PORT`, `BERT_SERVICE_URL`, `BERT_TIMEOUT`, `BERT_CONNECT_TIMEOUT`, `BERT_CLASSIFIER_MODEL`, `BERT_CLASSIFIER_VERSION`, `CLASSIFIER_PROVIDER` | Servicio y modelo de clasificación; las tres últimas se admiten en `config/ai.php`, aunque no todas aparecen en `.env.example` |
 | Fact Check | `GOOGLE_FACT_CHECK_ENABLED`, `GOOGLE_FACT_CHECK_API_KEY`, `GOOGLE_FACT_CHECK_API_BASE_URL`, `GOOGLE_FACT_CHECK_TIMEOUT`, `GOOGLE_FACT_CHECK_CONNECT_TIMEOUT` | Habilitación, clave y timeouts de Google Fact Check |
 | Búsqueda general | `SEARCH_PROVIDER_ENABLED`, `SEARCH_PROVIDER_DEFAULT`, `SEARCH_PROVIDER_FALLBACK`, `SEARCH_PROVIDER_TIMEOUT`, `SEARCH_PROVIDER_CONNECT_TIMEOUT`, `SEARCH_PROVIDER_MAX_RESULTS`, `SEARCH_FETCH_RESULTS`, `SEARCH_EVIDENCE_PER_CLAIM`, `SEARCH_TRUSTED_ONLY`, `SEARCH_EXTRA_BLOCKED_DOMAINS`, `SEARCH_EXTRA_TRUSTED_DOMAINS` | Activación, orden de proveedores, cantidad, filtros y política de dominios |
-| Tavily / Brave | `TAVILY_SEARCH_ENABLED`, `TAVILY_API_KEY`, `TAVILY_API_BASE_URL`, `TAVILY_TIMEOUT`, `TAVILY_CONNECT_TIMEOUT`, `TAVILY_MAX_RESULTS`; `BRAVE_SEARCH_ENABLED`, `BRAVE_API_KEY`, `BRAVE_API_BASE_URL`, `BRAVE_TIMEOUT`, `BRAVE_CONNECT_TIMEOUT`, `BRAVE_MAX_RESULTS` | Habilitación, credenciales, endpoints y límites por proveedor |
+| Tavily / Brave | `TAVILY_SEARCH_ENABLED`, `TAVILY_API_KEY`, `TAVILY_API_BASE_URL`, `TAVILY_TIMEOUT`, `TAVILY_CONNECT_TIMEOUT`, `TAVILY_MAX_RESULTS`; `BRAVE_SEARCH_ENABLED`, `BRAVE_API_KEY`, `BRAVE_API_BASE_URL`, `BRAVE_TIMEOUT`, `BRAVE_CONNECT_TIMEOUT`, `BRAVE_MAX_RESULTS` | Tavily se habilita con su configuración; Brave es opcional y desactivado por defecto, por lo que su clave puede permanecer vacía |
 | Scoring | `SCORING_ALGORITHM_VERSION`, `SCORING_WEIGHT_EVIDENCE`, `SCORING_WEIGHT_LANGUAGE`, `SCORING_WEIGHT_SOURCE`, `SCORING_WEIGHT_CORROBORATION`, `SCORING_WEIGHT_INDEPENDENCE`, `SCORING_WEIGHT_CONSISTENCY`, `SCORING_WEIGHT_TRANSPARENCY`, `SCORING_MIN_EVIDENCE_COVERAGE`, `SCORING_CREDIBLE_COVERAGE`, `SCORING_CREDIBLE_FACT_CHECK_COVERAGE`, `SCORING_PROBABLY_CREDIBLE_COVERAGE`, `SCORING_PROBABLY_MISLEADING_COVERAGE`, `SCORING_FALSE_FACT_CHECK_COVERAGE`, `SCORING_FALSE_MAX_SCORE`, `SCORING_CENTRAL_CLAIM_WEIGHT`, `SCORING_CENTRAL_CLAIM_MARGIN`, `SCORING_UNVERIFIED_SECONDARY_WEIGHT`, `CLAIM_EXTRACTION_MAX_CLAIMS` | Versión, pesos, thresholds, centralidad, claim cap y condiciones de abstención |
 | Planes API | `PLAN_FREE_PER_MINUTE`, `PLAN_FREE_ANALYSES_PER_DAY`, `PLAN_PRO_PER_MINUTE`, `PLAN_PRO_ANALYSES_PER_DAY` | Cuotas editables por plan |
-| Tokens/config Laravel no expuestas en los ejemplos | `SANCTUM_STATEFUL_DOMAINS`, `SANCTUM_TOKEN_PREFIX`, `AUTH_GUARD`, `AUTH_MODEL`, `AUTH_PASSWORD_BROKER`, `AUTH_PASSWORD_TIMEOUT` | Opciones soportadas por `config/sanctum.php` y `config/auth.php` |
+| Tokens/config de autenticación | `AUTH_TOKEN_TTL_MINUTES`, `SANCTUM_STATEFUL_DOMAINS`, `SANCTUM_TOKEN_PREFIX`, `AUTH_GUARD`, `AUTH_MODEL`, `AUTH_PASSWORD_BROKER`, `AUTH_PASSWORD_TIMEOUT` | TTL de tokens de sesión configurable (10 080 minutos por defecto); API keys no se ven afectadas |
+| Cuotas de cuentas web | `ANALYSES_PER_DAY`, `ANALYSES_CONCURRENT_PER_USER` | Límite diario y simultáneo por usuario |
+| Google Identity | `GOOGLE_CLIENT_ID` en backend y `googleClientId` en el environment Angular | Mismo Client ID OAuth público para validar la audiencia del ID token |
 
 Laravel también admite variables estándar opcionales para drivers alternativos (SQS,
 Beanstalkd, Memcached, S3, SMTP, etc.). No son requisitos operativos de este proyecto tal como
@@ -675,10 +708,20 @@ se seleccione y documente una plataforma de despliegue.
 
 ## 11. Seguridad y autenticación
 
-- **Sanctum:** tokens de acceso para autenticar las rutas de usuario; creación de token en
-  `AuthController`.
-  `config/sanctum.php` deja `expiration` en `null` (sin caducidad global configurada); revisar
-  estrategia de expiración/revocación.
+- **Sanctum:** los tokens de sesión llevan `expires_at`; `AUTH_TOKEN_TTL_MINUTES` configura el
+  TTL (10 080 minutos por defecto) y `sanctum.expiration` aplica el mismo límite. Refresh rota
+  el token, logout revoca el actual, logout-all revoca todos y cambio de contraseña revoca los
+  demás. El scheduler poda tokens vencidos con `sanctum:prune-expired --hours=24`. Las API keys
+  públicas son independientes.
+- **Google Identity:** `GoogleIdentityClaimsService` valida firma y claims `iss`, `aud`, `exp`
+  y `email_verified`; el correo local existente no se vincula automáticamente. El ID token se
+  recibe en JSON y no se almacena. El borrado de cuenta exige contraseña actual o ID token de
+  Google recién emitido (ventana configurada de 5 minutos).
+- **Cuotas de sesión:** `ANALYSES_PER_DAY` y `ANALYSES_CONCURRENT_PER_USER`; `GET /auth/quota`
+  informa uso, cupo restante, análisis activos y hora de reinicio. No sustituyen las cuotas por
+  plan de API keys.
+- **Preferencias:** el backend valida listas permitidas para tema, escala de texto, contraste,
+  movimiento, interlineado, densidad y fuente.
 - **Almacenamiento frontend:** token persistido en `localStorage` bajo `factnode.token`; reduce
   dependencia de cookies/CSRF, pero aumenta impacto de un XSS. Evaluar alternativas antes de
   endurecer este límite.
@@ -689,55 +732,41 @@ se seleccione y documente una plataforma de despliegue.
 - **Validación:** FormRequests; URL rechaza `localhost`, `.local` e IP literal privada/reservada;
   texto y uploads limitados. Esa mitigación no resuelve DNS antes de la descarga, por lo que no
   evita todos los escenarios SSRF/redirect rebinding.
-- **Rate limiting:** rutas internas con `throttle`; API pública limita por key y plan y devuelve
-  `Retry-After`/`X-RateLimit-*`.
+- **Rate limiting:** login, registro y refresh tienen límites por IP y correo normalizado;
+  API pública limita por key y plan y devuelve `Retry-After`/`X-RateLimit-*`. En despliegue
+  detrás de proxy hay que configurar `trustProxies` para identificar la IP del cliente.
 - **Secrets:** configuración desde environment. No almacenar secretos en commits ni documentación.
 - **CORS:** no se encontró `config/cors.php` ni configuración CORS explícita. El diseño actual
   usa el proxy de Angular en desarrollo; para frontend en otro origen revisar `bootstrap/app.php`,
   agregar/configurar CORS y revisar `SANCTUM_STATEFUL_DOMAINS` si se cambia a autenticación stateful.
 - **Privacidad de OCR:** la imagen se envía a PaddleOCR local y se conserva en storage; a Gemini
   solo se manda el texto OCR. Esto está implementado en el flujo actual.
+- **Borrado:** `AccountDeletionService` elimina tokens, claves, análisis, artículos propios y
+  archivos de captura referenciados; no se observó una política de purga automática de análisis.
 
 ## 12. Deuda técnica y problemas conocidos
 
 Los puntos siguientes son observaciones estáticas para orientar futuras tareas; no significan
 que todos se hayan reproducido en un entorno productivo.
 
-1. **Fallo de BERT bloquea el análisis pese al fallback neutro de scoring.** El scorer devuelve
-   lenguaje neutro si no hay predicción, pero `ClassifyArticleJob::failed()` marca el análisis
-   como `failed`; `FinalizeAnalysisJob` lo omite cuando ya está fallido. Esto contradice la
-   degradación elegante descrita en README. Revisar
-   [`ClassifyArticleJob.php`](app/Jobs/ClassifyArticleJob.php),
-   [`FinalizeAnalysisJob.php`](app/Jobs/FinalizeAnalysisJob.php) y
-   [`CredibilityScoreService.php`](app/Services/Scoring/CredibilityScoreService.php).
-2. **Deduplicación de artículos y ownership requieren política explícita.** Ingesta busca por
-   canonical URL/hash sin filtrar por usuario y puede devolver Article de otra cuenta; la
-   creación posterior de análisis pasa por `ArticlePolicy`. Alinear si artículos deduplicados
-   son globales o privados. Archivos: [`ArticleIngestionService.php`](app/Services/Article/ArticleIngestionService.php),
-   [`ArticlePolicy.php`](app/Policies/ArticlePolicy.php), [`ArticleController.php`](app/Http/Controllers/Api/ArticleController.php).
-3. **Condición de carrera en deduplicación por contenido.** `articles.content_hash` tiene
-   índice no único; los `first()` + `create()` de ingesta no están protegidos por constraint
-   único. Revisar necesidad de atomicidad y cómo representar propiedad múltiple. Migrations:
-   [`2026_08_25_040108_create_articles_table.php`](database/migrations/2026_08_25_040108_create_articles_table.php)
-   y [`ArticleIngestionService.php`](app/Services/Article/ArticleIngestionService.php).
-4. **Errores de ingesta se convierten todos en 422.** `ArticleController::store` captura
-   `Throwable`, registra y responde “Unable to process” como error de validación; fallas de
-   proveedor/servidor podrían necesitar código 5xx diferenciado. Revisar
-   [`ArticleController.php`](app/Http/Controllers/Api/ArticleController.php).
-5. **Clasificación OCR exclusivamente textual.** Gemini no recibe imagen ni coordenadas, así
+1. **Clasificación OCR exclusivamente textual.** Gemini no recibe imagen ni coordenadas, así
     que no puede inferir visualmente qué texto está incrustado en el gráfico frente al pie del
     post. Errores de lectura/clasificación requieren UX o lógica de validación adicional.
-6. **CI no ejercita los microservicios Python.** El workflow valida PHP y Angular,
-    pero no corre `ocr_service/tests/test_main.py`; no hay suite ML visible. Considerar job Python
-    separado con dependencias/versiones consistentes.
-7. **Pivot con restricción duplicada.** `verification_evidence` declara primary key y unique
+2. **Pivot con restricción duplicada.** `verification_evidence` declara primary key y unique
     con exactamente las mismas columnas. Es redundante y puede añadir índice extra. Revisar
     migration antes de alterarla, por compatibilidad SQLite/Postgres.
-8. **No hay reset/verificación de email implementados.** Hay tablas Laravel, pero no rutas
+3. **No hay reset/verificación de email implementados.** Hay tablas Laravel, pero no rutas
     propias en [`routes/api.php`](routes/api.php) ni flujos en `AuthController`.
-9. **Planes sin pagos.** `free`/`pro` existen; el cambio de plan se hace con comando Artisan,
+4. **Planes sin pagos.** `free`/`pro` existen; el cambio de plan se hace con comando Artisan,
     no hay suscripción/pasarela de pagos en código visible.
-10. **Calidad/exactitud no medible desde el repositorio.** No se encontró corpus de referencia,
+5. **Sin expiración absoluta de sesión.** El TTL del token se aplica a cada emisión/rotación,
+    pero no hay un máximo de vida desde el login.
+6. **Pendientes de despliegue:** `trustProxies`, cliente OAuth/orígenes JavaScript/CSP,
+    ejecución de migraciones, HTTPS, almacenamiento persistente para capturas y supervisión de
+    workers no están configurados en este repositorio.
+7. **Accesibilidad manual no verificada.** Hay pruebas axe automatizadas; teclado, zoom al
+    200 % y lector de pantalla aún requieren comprobación manual.
+8. **Calidad/exactitud no medible desde el repositorio.** No se encontró corpus de referencia,
     benchmark ni calibración estadística. La confianza se calcula como heurística, no probabilidad
     calibrada.
 

@@ -53,7 +53,8 @@ buscar manualmente cada dato.
   pegado**.
 - Divide la noticia en **afirmaciones (claims)** verificables y no verificables.
 - Para cada afirmación verificable consulta **verificadores de datos** (Google Fact Check
-  Tools) y **búsquedas web** (Tavily, con Brave de respaldo).
+  Tools) y **búsquedas web** (Tavily; Brave es opcional y permanece desactivado si no se
+  configura).
 - Un **analista basado en Gemini** evalúa cada afirmación únicamente con la evidencia
   encontrada y redacta una síntesis.
 - Un **clasificador BERT** en español aporta una señal auxiliar de estilo/lenguaje.
@@ -84,7 +85,7 @@ buscar manualmente cada dato.
 | Clasificador | **BERT** `Juanillaberia/spanish-fake-news-classifier` en un microservicio **FastAPI** (Python, Docker) | Modelo específico para español, aislado del backend |
 | OCR y selección de contenido | **PaddleOCR 3.7** local + **Gemini** | PaddleOCR extrae texto; Gemini recibe solo las líneas OCR y separa noticia, texto integrado en la imagen, perfil y otros elementos antes del análisis |
 | Verificación | **Google Fact Check Tools API** | Revisiones editoriales reales con rating |
-| Búsqueda web | **Tavily** (principal) y **Brave** (respaldo) | Resultados con snippets aptos para análisis |
+| Búsqueda web | **Tavily** (principal) y **Brave** (respaldo opcional, desactivado por defecto) | Resultados con snippets aptos para análisis; no se necesita una clave de Brave para ejecutar la aplicación |
 | Extracción HTML | `symfony/dom-crawler` | Lee JSON-LD, Open Graph, metadatos y párrafos |
 | Frontend | **Angular 21** (standalone, signals) en `frontend/` | SPA accesible (WCAG 2.2 AA) con la identidad FactNode; se sirve con Angular CLI en desarrollo |
 | Cuentas y API | **Laravel Sanctum** (tokens) + API keys propias | Sesiones de usuario para la app y claves con planes para la API pública |
@@ -110,7 +111,7 @@ flowchart LR
     Q --> G["Gemini / OpenAI"]
     Q --> B["Servicio BERT (FastAPI)"]
     Q --> F["Google Fact Check"]
-    Q --> S["Tavily / Brave"]
+    Q --> S["Tavily / Brave opcional"]
 ```
 
 ### 3.2 Capas del backend
@@ -472,6 +473,8 @@ protegida con un token vencido devuelve `401` y `code: token_expired`. Login, re
 límite de 10 solicitudes por minuto tanto por IP como por correo normalizado. Las API keys públicas no
 usan esta expiración ni estos límites.
 
+`POST /auth/google` también es público; el resto de rutas bajo `/api/v1` requiere sesión autenticada.
+
 | Método y ruta | Descripción | Límite |
 |---|---|---|
 | `POST /auth/register` | Crea cuenta (contraseña ≥ 8 con letras y números) y devuelve `token` | 10/min |
@@ -499,6 +502,31 @@ usan esta expiración ni estos límites.
 | `GET /analyses/{id}` | Informe completo (score, claims, verificaciones, evidencias) | 60/min |
 | `GET /analyses/{id}/status` | Estado liviano para *polling* (`step`, `progress`, `error`) | 120/min |
 | `POST /analyses/{id}/retry` | Reencola un análisis (`409` si está procesando) | 20/min |
+
+`PUT /auth/preferences` guarda las preferencias permitidas del perfil. Los valores admitidos
+son tema (`system`, `light`, `dark`), escala de texto (`0.9`, `1`, `1.15`, `1.3`), alto
+contraste y movimiento reducido (booleanos), interlineado (`compact`, `normal`, `relaxed`),
+densidad (`comfortable`, `compact`) y fuente (`system`, `atkinson`). `GET /auth/quota`
+devuelve uso diario, cupo restante, análisis activos, límite de concurrencia e instante de
+reinicio.
+
+Errores de sesión y cuenta que exponen un `code` estable:
+
+| HTTP | `code` | Significado |
+|---|---|---|
+| `401` | `token_expired` | El token Sanctum venció; inicia sesión o renuévalo antes de su vencimiento |
+| `429` | `rate_limit_exceeded` | Se excedió el límite por IP o correo en autenticación |
+| `429` | `daily_quota_exceeded` | Se excedió el cupo diario o concurrente de la cuenta web |
+| `409` | `account_exists` | El correo de Google pertenece a una cuenta local; inicia con contraseña y vincula Google desde Preferencias |
+| `409` | `analysis_already_active` | El análisis ya está pendiente o procesándose y no se puede reencolar |
+| `409` | `last_auth_method` | Google no se puede desvincular si es el único método de acceso |
+| `422` | `invalid_preferences` | Las preferencias no coinciden con la lista permitida |
+| `503` | `google_auth_unavailable` | Google no está configurado o su verificación no está disponible |
+
+Los errores de validación Laravel también pueden responder `422` con `message` y `errors`.
+La rotación de `POST /auth/refresh` revoca el token actual al emitir el siguiente; logout
+revoca el actual y logout-all revoca todas las sesiones. Cambiar la contraseña revoca las
+demás sesiones. No hay un límite de expiración absoluta desde el primer login.
 
 Informe (`GET /analyses/{id}`) incluye en `score`: `summary`, `truth_assessment`,
 `verdict_rationale`, `evidence_coverage`, `fact_check_coverage` y `claim_evaluations`
@@ -589,10 +617,21 @@ Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación O
 - **Secretos** solo por variables de entorno; sin llaves en el código.
 - **Autenticación y autorización:** tokens Sanctum; políticas por propietario (403 si el análisis o artículo es de otro
   usuario); contraseñas con `hashed` (bcrypt); API keys guardadas como hash.
+- Los tokens de sesión se crean con `expires_at` y vencen a los 7 días por defecto
+  (`AUTH_TOKEN_TTL_MINUTES`); `sanctum.expiration` aplica el mismo límite. Las API keys públicas
+  no usan esta expiración. `POST /auth/refresh` rota el token, logout revoca el actual,
+  logout-all revoca todos y cambiar la contraseña revoca los demás. El scheduler ejecuta
+  `sanctum:prune-expired --hours=24`.
+- Login, registro y refresh se limitan por IP y correo normalizado. En producción, configura
+  `trustProxies` con los proxies reales para que Laravel obtenga la IP correcta.
 - **Sin XSS en el frontend:** Angular escapa las plantillas y los enlaces externos se validan (`safeUrl`, solo http/https).
 - **Cabeceras de seguridad:** no se incluye una configuración de servidor HTTP de producción;
   configurar y verificar headers de seguridad al elegir la plataforma de despliegue.
 - **Subida de imágenes:** validación de tipo real (`image`), tamaño máx. 5 MB y almacenamiento fuera de `public/`.
+- **Google Identity Services:** el backend valida firma y claims del ID token contra
+  `GOOGLE_CLIENT_ID`; la credencial viaja en el cuerpo JSON y no se guarda. Configura los orígenes
+  JavaScript autorizados y, si aplicas CSP, los dominios de Google indicados en la sección de
+  configuración.
 - Consultas con Eloquent (parametrizadas), sin SQL manual.
 - `composer audit` se ejecuta en el CI.
 
@@ -602,19 +641,25 @@ Base: `/api/public/v1` · cabecera `X-API-Key: fn_live_…` · especificación O
 
 - SPA **Angular 21** en `frontend/` (componentes standalone, *signals*, carga perezosa por ruta). Páginas: ingresar /
   crear cuenta, analizar (URL, texto o **captura de pantalla con OCR**), resultado con progreso por pasos (*polling* a
-  `/status` cada 2.5 s), historial con filtros y paginación, credibilidad de fuentes y gestión de API keys.
+  `/status` cada 2.5 s), historial con filtros y paginación, credibilidad de fuentes, gestión de API keys,
+  preferencias, privacidad y documentación pública de API keys (`/documentacion-api`).
 - El resultado muestra puntaje, veredicto, confianza, síntesis, **limitaciones**, señales y cada afirmación con su
   estado (Respaldado / Contradicho / Parcialmente cierto / No verificado / Información insuficiente), fact-checks y
   fuentes; permite descargar el **PDF** y el JSON del informe.
-- **Accesibilidad (WCAG 2.2 AA):** enlace «Saltar al contenido», *landmarks* (`header`, `nav`, `main`, `footer`),
+- **Accesibilidad (objetivo WCAG 2.2 AA):** enlace «Saltar al contenido», *landmarks* (`header`, `nav`, `main`, `footer`),
   foco movido al contenido en cada navegación, etiquetas y mensajes de error asociados a cada campo (`aria-describedby`,
   `role="alert"`), región `aria-live` que anuncia el progreso, estados que no dependen solo del color (icono + texto),
-  foco visible, contraste ≥ 4.5:1, objetivos táctiles ≥ 44 px, `lang="es"`, tablas con `caption` y `scope`, y barra de
-  preferencias: **tamaño de texto, alto contraste y sin animaciones** (también respeta `prefers-reduced-motion`).
+  foco visible, contraste ≥ 4.5:1 para texto y ≥ 3:1 para componentes, objetivos táctiles ≥ 44 px,
+  `lang="es"`, tablas con `caption` y `scope`, y
+  preferencias de tema claro/oscuro/sistema, cuatro escalas de texto, alto contraste, interlineado, densidad y
+  movimiento reducido (también respeta `prefers-reduced-motion`, `prefers-color-scheme` y `prefers-contrast`).
 - Identidad visual del **manual de marca FactNode**: Tinta `#0B1626`, Cobalto `#2547F5`, Niebla `#EEF2F7`,
-  Turquesa, Ámbar y Ladrillo (oscurecidos para texto accesible); tipografías Space Grotesk e IBM Plex Sans.
+  Turquesa, Ámbar y Ladrillo (ajustados para contraste accesible); IBM Plex Sans, Space Grotesk y Atkinson
+  Hyperlegible se sirven desde archivos locales, sin Google Fonts.
 - El token se guarda en `localStorage` y un interceptor lo añade a cada petición; ante un `401` se cierra la sesión.
   Trade-off: `localStorage` es vulnerable a XSS, mitigado con CSP y plantillas escapadas.
+- La ruta pública `/documentacion-api` contiene una guía breve de la API de API keys; la sesión de usuario se
+  documenta aquí y no forma parte de OpenAPI.
 
 ---
 
@@ -671,7 +716,7 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | `AUTH_TOKEN_TTL_MINUTES` | `10080` (7 días) para tokens de sesión web; no afecta las API keys públicas |
 | `ANALYSES_PER_DAY` | `10` análisis diarios por cuenta web |
 | `ANALYSES_CONCURRENT_PER_USER` | `2` análisis `pending`/`processing` simultáneos por cuenta |
-| `GOOGLE_CLIENT_ID` | Client ID OAuth de tipo Web para validar credenciales GIS en el backend |
+| `GOOGLE_CLIENT_ID` | Client ID OAuth de tipo Web para validar credenciales GIS en el backend; puede dejarse vacío si no se habilita Google |
 | `frontend/src/environments/environment.ts` → `googleClientId` | El mismo Client ID público, compilado en la SPA |
 
 **IA**
@@ -696,8 +741,8 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | Variable | Descripción |
 |---|---|
 | `GOOGLE_FACT_CHECK_ENABLED`, `GOOGLE_FACT_CHECK_API_KEY` | Google Fact Check |
-| `SEARCH_PROVIDER_ENABLED`, `SEARCH_PROVIDER_DEFAULT`, `SEARCH_PROVIDER_FALLBACK` | `true`, `tavily`, `brave` |
-| `TAVILY_SEARCH_ENABLED`, `TAVILY_API_KEY`, `BRAVE_SEARCH_ENABLED`, `BRAVE_API_KEY` | Claves de búsqueda |
+| `SEARCH_PROVIDER_ENABLED`, `SEARCH_PROVIDER_DEFAULT`, `SEARCH_PROVIDER_FALLBACK` | Habilitación y orden de proveedores; valores típicos `true`, `tavily`, `brave` |
+| `TAVILY_SEARCH_ENABLED`, `TAVILY_API_KEY`, `BRAVE_SEARCH_ENABLED`, `BRAVE_API_KEY` | Tavily puede habilitarse con su clave; Brave es opcional y `BRAVE_SEARCH_ENABLED=false` permite dejar su clave vacía |
 | `SEARCH_FETCH_RESULTS`, `SEARCH_EVIDENCE_PER_CLAIM` | 15 pedidos, 8 conservados |
 | `SEARCH_TRUSTED_ONLY`, `SEARCH_EXTRA_BLOCKED_DOMAINS`, `SEARCH_EXTRA_TRUSTED_DOMAINS` | Política de dominios |
 
@@ -956,6 +1001,15 @@ ejecuta `composer analyse` para confirmar que CI no recibe errores nuevos.
   mediante `Request::ip()`. Antes de producción, configurar `trustProxies` con las direcciones
   reales del proxy/balanceador para que la IP del cliente sea correcta y no confiar cabeceras
   reenviadas desde orígenes no autorizados.
+- **Sesión absoluta:** los tokens individuales vencen según `AUTH_TOKEN_TTL_MINUTES`, pero no hay
+  un máximo de duración desde el login que obligue a autenticarse de nuevo tras una cadena de
+  renovaciones.
+- **Verificación manual de accesibilidad:** la suite automatizada cubre vistas con axe en temas
+  configurados; siguen pendientes comprobaciones manuales de teclado, zoom al 200 % y lector de
+  pantalla antes del despliegue.
+- **Configuración de despliegue pendiente:** aplicar migraciones en el entorno elegido, configurar
+  el cliente OAuth y los orígenes/CSP de producción, y comprobar almacenamiento de capturas,
+  proxies confiables, HTTPS y supervisión de workers.
 - **No implementado** (Product Backlog): EP21 análisis comparativo, EP22 redes sociales, EP25 multilenguaje y
   correcciones publicadas por medio (EP20-HU4).
 

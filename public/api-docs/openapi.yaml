@@ -35,6 +35,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                invalidApiKey:
+                  value: { code: invalid_api_key, message: "API key inválida o ausente." }
         "422":
           description: Datos inválidos, URL bloqueada/no descargable o noticia sin contenido extraíble
           content:
@@ -54,6 +57,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+              examples:
+                rateLimitExceeded:
+                  value: { code: rate_limit_exceeded, message: "Límite de solicitudes por minuto excedido para tu plan." }
+                dailyLimitExceeded:
+                  value: { code: daily_limit_exceeded, message: "Alcanzaste el límite diario de análisis de tu plan." }
         "500":
           description: Error interno inesperado
           content:
@@ -65,7 +73,19 @@ paths:
       summary: Informe completo (score, veredicto, claims y evidencias)
       parameters: [{ $ref: "#/components/parameters/Id" }]
       responses:
-        "200": { description: OK; score incluye language_signal_available (false cuando se usa el fallback neutro por falta de predicción BERT) }
+        "200":
+          description: Informe completo; el artículo incluye title y title_source (extracted, user, ai o fallback). El score incluye language_signal_available.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      article:
+                        $ref: "#/components/schemas/PublicArticle"
+                    additionalProperties: true
         "403": { description: No es tu análisis }
   /analyses/{id}/status:
     get:
@@ -113,3 +133,14 @@ components:
           additionalProperties:
             type: array
             items: { type: string }
+    PublicArticle:
+      type: object
+      description: Campos del artículo incluidos en un informe público.
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        title_source:
+          type: string
+          enum: [extracted, user, ai, fallback]
+          description: Procedencia del título del artículo.
+      additionalProperties: true
