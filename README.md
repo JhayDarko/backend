@@ -869,6 +869,7 @@ ejecuta `composer analyse` para confirmar que CI no recibe errores nuevos.
 
 **Limitaciones**
 
+- La calidad del veredicto no se ha medido con un conjunto de evaluación; el trabajo preparatorio está en la rama `respaldo-fase-3`.
 - **Sin métricas de exactitud:** falta un conjunto de noticias en español etiquetado por
   claim. Los pesos y umbrales son reglas conservadoras, no resultados entrenados.
 - **Cobertura de verificadores limitada:** Google Fact Check no cubre todas las noticias; muchas
