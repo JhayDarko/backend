@@ -23,11 +23,7 @@ class ClassifyArticleJob implements ShouldQueue
 
     public function __construct(
         public int $analysisId,
-    ) {
-        if (app()->environment('testing') && filter_var(config('evaluation.test_fast_backoff'), FILTER_VALIDATE_BOOL)) {
-            $this->backoff = 0;
-        }
-    }
+    ) {}
 
     public function handle(?ClassifierProviderInterface $classifierProvider = null): void
     {

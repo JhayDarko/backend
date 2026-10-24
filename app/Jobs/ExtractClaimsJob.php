@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Contracts\AiProviderInterface;
 use App\Exceptions\AiProviderException;
 use App\Models\Analysis;
-use App\Services\Evaluation\EvaluationSnapshotSanitizer;
 use App\Services\Verification\ClaimExtractionService;
 use Illuminate\Bus\Batch;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,11 +25,7 @@ class ExtractClaimsJob implements ShouldQueue
 
     public function __construct(
         public int $analysisId,
-    ) {
-        if (app()->environment('testing') && filter_var(config('evaluation.test_fast_backoff'), FILTER_VALIDATE_BOOL)) {
-            $this->backoff = [0, 0, 0, 0];
-        }
-    }
+    ) {}
 
     public function handle(ClaimExtractionService $claimExtractionService): void
     {
@@ -78,25 +73,17 @@ class ExtractClaimsJob implements ShouldQueue
                 'model_name' => app(AiProviderInterface::class)->getModel(),
                 'algorithm_version' => config('ai.prompt_version', '1.0.0'),
             ]);
-            if (config('evaluation.active')) {
-                $metadata = $analysis->fresh()->metadata ?? [];
-                $metadata['usageMetadata'] = data_get($result->providerMetadata, 'usageMetadata');
-                $metadata['response_headers'] = data_get($result->providerMetadata, 'response_headers');
-                $analysis->update(['metadata' => $metadata]);
-            }
 
             $claims = $analysis->claims()->get();
 
             $jobs = [new ClassifyArticleJob($analysis->id)->onConnection('redis')];
             foreach ($claims->where('verifiable', true) as $claim) {
-                if (! (config('evaluation.active') && config('evaluation.no_factcheck'))) {
-                    $jobs[] = new VerifyClaimJob($claim->id)->onConnection('redis');
-                }
+                $jobs[] = new VerifyClaimJob($claim->id)->onConnection('redis');
                 $jobs[] = new SearchClaimEvidenceJob($claim->id)->onConnection('redis');
             }
 
             $analysisId = $analysis->id;
-            $batch = Bus::batch($jobs)
+            Bus::batch($jobs)
                 ->name("analysis-{$analysisId}-evidence")
                 ->allowFailures()
                 ->then(function (Batch $batch) use ($analysisId): void {
@@ -114,12 +101,6 @@ class ExtractClaimsJob implements ShouldQueue
                 })
                 ->dispatch();
 
-            if (config('evaluation.active')) {
-                $metadata = $analysis->fresh()->metadata ?? [];
-                $metadata['evaluation_batch_id'] = $batch->id;
-                $analysis->update(['metadata' => $metadata]);
-            }
-
             Log::info('Claims extracted and persisted', [
                 'analysis_id' => $analysis->id,
                 'article_id' => $article->id,
@@ -127,18 +108,6 @@ class ExtractClaimsJob implements ShouldQueue
                 'batch_jobs_dispatched' => count($jobs),
             ]);
         } catch (Throwable $exception) {
-            if (config('evaluation.active')) {
-                $message = app(EvaluationSnapshotSanitizer::class)
-                    ->sanitize(['message' => $exception->getMessage()])['message'];
-                $exception = new \RuntimeException(
-                    is_string($message) ? $message : 'Evaluation provider failed.',
-                    (int) $exception->getCode(),
-                );
-                $metadata = $analysis->fresh()->metadata ?? [];
-                $metadata['evaluation_last_job_error'] = $exception->getMessage();
-                $analysis->update(['metadata' => $metadata]);
-            }
-
             Log::error('ExtractClaimsJob failed', [
                 'analysis_id' => $analysis->id,
                 'article_id' => $article->id,
