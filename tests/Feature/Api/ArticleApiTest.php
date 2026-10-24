@@ -6,6 +6,7 @@ use App\Contracts\Article\HostResolverInterface;
 use App\Models\Article;
 use App\Models\Source;
 use App\Models\User;
+use App\Services\Article\ArticleIngestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -146,6 +147,58 @@ class ArticleApiTest extends TestCase
             ->assertJsonPath('data.source.name', 'AP News');
     }
 
+    public function test_owner_can_rename_article_and_title_source_becomes_user(): void
+    {
+        $article = Article::query()->create([
+            'created_by' => $this->user->id,
+            'title' => 'Título anterior',
+            'title_source' => 'ai',
+            'content' => 'Contenido que pertenece a este usuario.',
+        ]);
+
+        $this->patchJson("/api/v1/articles/{$article->id}", ['title' => 'Título nuevo'])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Título nuevo')
+            ->assertJsonPath('data.title_source', 'user');
+
+        $this->assertDatabaseHas('articles', [
+            'id' => $article->id,
+            'title' => 'Título nuevo',
+            'title_source' => 'user',
+        ]);
+    }
+
+    public function test_user_cannot_rename_an_article_owned_by_another_user(): void
+    {
+        $article = Article::query()->create([
+            'created_by' => User::factory()->create()->id,
+            'title' => 'Título privado',
+            'content' => 'Contenido de otro usuario.',
+        ]);
+
+        $this->patchJson("/api/v1/articles/{$article->id}", ['title' => 'Intento'])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('articles', [
+            'id' => $article->id,
+            'title' => 'Título privado',
+        ]);
+    }
+
+    public function test_article_rename_rejects_blank_and_too_long_titles(): void
+    {
+        $article = Article::query()->create([
+            'created_by' => $this->user->id,
+            'title' => 'Título original',
+            'content' => 'Contenido propio.',
+        ]);
+
+        $this->patchJson("/api/v1/articles/{$article->id}", ['title' => '   '])
+            ->assertUnprocessable();
+        $this->patchJson("/api/v1/articles/{$article->id}", ['title' => str_repeat('a', 151)])
+            ->assertUnprocessable();
+    }
+
     public function test_can_store_article_via_raw_text_submission(): void
     {
         $payload = [
@@ -158,6 +211,7 @@ class ArticleApiTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.title', 'Rumor de redes sociales sobre nueva ley')
+            ->assertJsonPath('data.title_source', 'user')
             ->assertJsonPath('data.url', null)
             ->assertJsonPath('data.author_name', 'Canal de Difusión');
 
@@ -165,6 +219,46 @@ class ArticleApiTest extends TestCase
             'title' => 'Rumor de redes sociales sobre nueva ley',
             'author_name' => 'Canal de Difusión',
         ]);
+    }
+
+    public function test_raw_text_without_a_user_title_gets_deterministic_fallback_and_preserves_content_hash(): void
+    {
+        $content = 'Este texto pegado contiene suficiente información para analizarse sin un título explícito.';
+        $response = $this->postJson('/api/v1/articles', ['content' => $content]);
+
+        $article = Article::query()->findOrFail($response->json('data.id'));
+        $duplicate = $this->postJson('/api/v1/articles', [
+            'content' => $content,
+            'title' => 'Un título no altera la huella',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.title_source', 'fallback');
+        $this->assertSame($article->id, $duplicate->json('data.id'));
+        $this->assertSame('Texto pegado · '.now()->format('d/m/Y'), $article->title);
+        $this->assertSame(hash('sha256', trim($content)), $article->content_hash);
+    }
+
+    public function test_ocr_ingestion_uses_extracted_or_fallback_title_source(): void
+    {
+        $content = 'Texto de noticia OCR con longitud suficiente para una clasificación y análisis apropiados.';
+        $service = app(ArticleIngestionService::class);
+
+        $withHeadline = $service->ingestText(
+            $content,
+            title: 'Titular detectado',
+            userId: $this->user->id,
+            metadata: ['submission_type' => 'image_ocr'],
+        );
+        $withoutHeadline = $service->ingestText(
+            $content.' Segunda versión OCR para evitar duplicación.',
+            userId: $this->user->id,
+            metadata: ['submission_type' => 'image_ocr'],
+        );
+
+        $this->assertSame('extracted', $withHeadline->title_source);
+        $this->assertSame('fallback', $withoutHeadline->title_source);
+        $this->assertSame('Imagen analizada · '.now()->format('d/m/Y'), $withoutHeadline->title);
     }
 
     public function test_can_store_article_from_plain_text_body(): void

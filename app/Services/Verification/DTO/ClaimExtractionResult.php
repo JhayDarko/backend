@@ -17,6 +17,7 @@ final class ClaimExtractionResult
         public readonly array $sources,
         public readonly array $redFlags,
         public readonly string $promptVersion,
+        public readonly ?string $suggestedTitle = null,
     ) {}
 
     /**

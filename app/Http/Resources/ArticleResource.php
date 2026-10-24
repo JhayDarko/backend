@@ -14,6 +14,7 @@ class ArticleResource extends JsonResource
             'url' => $this->url,
             'canonical_url' => $this->canonical_url,
             'title' => $this->title,
+            'title_source' => data_get($this->resource, 'title_source'),
             'description' => $this->description,
             'content' => $this->content,
             'author_name' => $this->author_name,

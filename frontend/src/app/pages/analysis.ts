@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
 import { A11yService } from '../core/a11y.service';
@@ -19,13 +20,52 @@ import { Analysis, AnalysisStatusInfo, ClaimEvaluation } from '../core/models';
 
 @Component({
   selector: 'app-analysis',
-  imports: [RouterLink],
+  imports: [FormsModule, RouterLink],
   template: `
     <section class="analysis-page" aria-labelledby="t">
       <p class="back-link"><a routerLink="/">← Analizar otra noticia</a></p>
       <header class="page-heading">
         <p class="eyebrow">Informe de credibilidad</p>
         <h1 id="t">{{ analysis()?.article?.title || 'Análisis de la noticia' }}</h1>
+        @if (analysis()?.article?.title_source === 'ai') {
+          <p class="title-source">Título sugerido por IA</p>
+        }
+        @if (analysis()?.article; as article) {
+          @if (!editingTitle()) {
+            <button
+              class="btn secondary small title-edit-trigger"
+              type="button"
+              (click)="beginTitleEdit()"
+            >
+              Editar título
+            </button>
+          } @else {
+            <form class="title-edit-form" (ngSubmit)="saveTitle(article.id)">
+              <label for="analysis-title">Título del artículo</label>
+              <input
+                id="analysis-title"
+                name="analysisTitle"
+                type="text"
+                maxlength="150"
+                required
+                [attr.aria-invalid]="!!titleError()"
+                [attr.aria-describedby]="titleError() ? 'title-error' : null"
+                [(ngModel)]="titleDraft"
+              />
+              @if (titleError()) {
+                <p id="title-error" class="field-error" role="alert">{{ titleError() }}</p>
+              }
+              <div class="row">
+                <button class="btn small" type="submit" [disabled]="savingTitle()">
+                  {{ savingTitle() ? 'Guardando…' : 'Guardar título' }}
+                </button>
+                <button class="btn secondary small" type="button" (click)="cancelTitleEdit()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          }
+        }
       </header>
       @if (analysis()?.article?.url; as link) {
         <p class="muted">
@@ -42,7 +82,7 @@ import { Analysis, AnalysisStatusInfo, ClaimEvaluation } from '../core/models';
       }
 
       @if (!finished()) {
-        <div class="card progress-card" aria-live="off">
+        <div class="card progress-card">
           <p class="eyebrow">Análisis en curso</p>
           <h2>Estado del análisis</h2>
           <label for="progress">{{ stepText() }}</label>
@@ -53,7 +93,8 @@ import { Analysis, AnalysisStatusInfo, ClaimEvaluation } from '../core/models';
             [attr.aria-valuetext]="progress() + ' por ciento. ' + stepText()"
           ></progress>
           <p class="muted">
-            <span role="status">{{ progress() }} % · {{ statusText() }}</span>
+            <span aria-hidden="true">{{ progress() }} % · </span>
+            <span role="status" aria-live="polite" aria-atomic="true">{{ statusText() }}</span>
           </p>
           <p class="hint">
             Puede tardar un par de minutos. Puedes salir de esta página: el análisis continúa y
@@ -245,117 +286,7 @@ import { Analysis, AnalysisStatusInfo, ClaimEvaluation } from '../core/models';
       }
     </section>
   `,
-  styles: `
-    .back-link {
-      margin-bottom: 1.1rem;
-    }
-    .back-link a {
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .back-link a:hover {
-      text-decoration: underline;
-    }
-    .analysis-page .page-heading h1 {
-      max-width: 30ch;
-      overflow-wrap: anywhere;
-    }
-    .progress-card {
-      border-top: 3px solid var(--cobalto);
-    }
-    .progress-card .eyebrow {
-      margin-bottom: 0.25rem;
-    }
-    .progress-card h2 {
-      margin-bottom: 0.8rem;
-    }
-    .progress-card progress {
-      margin: 0.3rem 0;
-    }
-    .verdict {
-      display: flex;
-      gap: 1.5rem;
-      align-items: center;
-      flex-wrap: wrap;
-      border-width: 2px;
-    }
-    .verdict.good {
-      border-color: var(--turquesa);
-    }
-    .verdict.bad {
-      border-color: var(--ladrillo);
-    }
-    .verdict.warn {
-      border-color: var(--ambar);
-    }
-    .grow {
-      flex: 1 1 240px;
-    }
-    .score {
-      --p: 0;
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      flex: none;
-      background: conic-gradient(var(--cobalto) calc(var(--p) * 1%), var(--niebla) 0);
-      position: relative;
-    }
-    .score::before {
-      content: '';
-      position: absolute;
-      inset: 12px;
-      border-radius: 50%;
-      background: var(--card);
-    }
-    .score span {
-      position: relative;
-      font-family: var(--font-head);
-      font-size: 2rem;
-      font-weight: 700;
-    }
-    .score small {
-      font-size: 0.8rem;
-      font-weight: 500;
-    }
-    .kicker {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .claims {
-      list-style: none;
-      padding: 0;
-      margin: 0.75rem 0 1.25rem;
-    }
-    .claims .card {
-      margin-bottom: 0.75rem;
-      padding: 0.75rem 1rem;
-    }
-    summary {
-      cursor: pointer;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      align-items: center;
-    }
-    summary::marker {
-      color: var(--cobalto);
-    }
-    summary:hover .claim-text {
-      color: var(--cobalto);
-    }
-    .claim-text {
-      flex: 1 1 280px;
-      font-weight: 600;
-    }
-    .detail {
-      margin-top: 0.75rem;
-    }
-  `,
+  styleUrl: './analysis.css',
 })
 export class AnalysisPage {
   readonly id = input.required<string>();
@@ -368,6 +299,10 @@ export class AnalysisPage {
   protected readonly status = signal<AnalysisStatusInfo | null>(null);
   protected readonly loadError = signal('');
   protected readonly downloading = signal(false);
+  protected readonly editingTitle = signal(false);
+  protected readonly savingTitle = signal(false);
+  protected readonly titleError = signal('');
+  protected titleDraft = '';
 
   protected readonly finished = computed(() =>
     ['completed', 'failed'].includes(this.status()?.status ?? this.analysis()?.status ?? ''),
@@ -444,6 +379,35 @@ export class AnalysisPage {
         this.start();
       },
       error: (e) => this.loadError.set(errorMessage(e)),
+    });
+  }
+
+  protected beginTitleEdit(): void {
+    this.titleDraft = this.analysis()?.article?.title ?? '';
+    this.titleError.set('');
+    this.editingTitle.set(true);
+  }
+
+  protected cancelTitleEdit(): void {
+    this.editingTitle.set(false);
+    this.titleError.set('');
+  }
+
+  protected saveTitle(articleId: number): void {
+    this.savingTitle.set(true);
+    this.titleError.set('');
+    this.api.updateArticleTitle(articleId, this.titleDraft).subscribe({
+      next: (article) => {
+        const analysis = this.analysis();
+        if (analysis) this.analysis.set({ ...analysis, article });
+        this.savingTitle.set(false);
+        this.editingTitle.set(false);
+        this.a11y.announce('Título actualizado');
+      },
+      error: (error) => {
+        this.savingTitle.set(false);
+        this.titleError.set(errorMessage(error, 'No se pudo actualizar el título.'));
+      },
     });
   }
 

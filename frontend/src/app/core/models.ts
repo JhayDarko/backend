@@ -3,11 +3,23 @@ export interface User {
   name: string;
   email: string;
   auth_methods?: ('password' | 'google')[];
+  preferences?: UserPreferences | null;
+}
+
+export interface UserPreferences {
+  theme: 'system' | 'light' | 'dark';
+  fontScale: 0.9 | 1 | 1.15 | 1.3;
+  highContrast: boolean;
+  reduceMotion: boolean;
+  lineHeight: 'compact' | 'normal' | 'relaxed';
+  density: 'comfortable' | 'compact';
+  fontFamily: 'system' | 'atkinson';
 }
 
 export interface Article {
   id: number;
   title: string | null;
+  title_source?: 'extracted' | 'user' | 'ai' | 'fallback';
   url: string | null;
   source?: { id: number; name: string; domain: string } | null;
 }

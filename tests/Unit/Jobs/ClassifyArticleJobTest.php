@@ -15,14 +15,24 @@ class ClassifyArticleJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    public string $classifiedTitle = '';
+
+    public string $classifiedContent = '';
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->app->instance(ClassifierProviderInterface::class, new class implements ClassifierProviderInterface
+        $test = $this;
+        $this->app->instance(ClassifierProviderInterface::class, new class($test) implements ClassifierProviderInterface
         {
+            public function __construct(private ClassifyArticleJobTest $test) {}
+
             public function classify(string $title, string $content, ?string $description = null): ClassificationResult
             {
+                $this->test->classifiedTitle = $title;
+                $this->test->classifiedContent = $content;
+
                 return ClassificationResult::from([
                     'label' => 'REAL',
                     'confidence' => 0.91,
@@ -82,6 +92,8 @@ class ClassifyArticleJobTest extends TestCase
         $this->assertSame('pending', $analysis->status);
         $this->assertSame(1, $analysis->predictions()->count());
         $this->assertSame('REAL', $analysis->predictions()->first()->prediction_label);
+        $this->assertSame('', $this->classifiedTitle);
+        $this->assertSame($article->content, $this->classifiedContent);
     }
 
     public function test_it_is_idempotent_on_retry(): void

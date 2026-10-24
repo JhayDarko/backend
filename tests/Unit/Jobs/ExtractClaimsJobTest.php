@@ -26,12 +26,17 @@ class ExtractClaimsJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    public ?string $suggestedTitle = null;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->app->instance(AiProviderInterface::class, new class implements AiProviderInterface
+        $test = $this;
+        $this->app->instance(AiProviderInterface::class, new class($test) implements AiProviderInterface
         {
+            public function __construct(private ExtractClaimsJobTest $test) {}
+
             public function extractClaims(string $title, string $content, ?string $description = null): ExtractedClaimsResponse
             {
                 return ExtractedClaimsResponse::from([
@@ -48,6 +53,7 @@ class ExtractClaimsJobTest extends TestCase
                     'entities' => [],
                     'sources' => [],
                     'red_flags' => [],
+                    'suggested_title' => $this->test->suggestedTitle,
                 ]);
             }
 
@@ -61,6 +67,30 @@ class ExtractClaimsJobTest extends TestCase
                 return 'gemini-2.0-flash';
             }
         });
+    }
+
+    public function test_extract_claims_job_applies_a_valid_ai_title_only_to_fallback_titles(): void
+    {
+        Bus::fake();
+        $this->suggestedTitle = 'Un título neutral';
+
+        $article = Article::query()->create([
+            'title' => 'Texto pegado · 24/10/2026',
+            'title_source' => 'fallback',
+            'content' => 'El texto tiene información suficiente para analizar afirmaciones verificables.',
+        ]);
+        $analysis = Analysis::query()->create([
+            'article_id' => $article->id,
+            'status' => 'pending',
+        ]);
+
+        (new ExtractClaimsJob($analysis->id))->handle(app(ClaimExtractionService::class));
+
+        $this->assertDatabaseHas('articles', [
+            'id' => $article->id,
+            'title' => 'Un título neutral',
+            'title_source' => 'ai',
+        ]);
     }
 
     public function test_analyze_article_job_dispatches_extract_claims_job(): void

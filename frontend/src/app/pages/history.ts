@@ -61,9 +61,12 @@ import { Analysis } from '../core/models';
             @for (a of items(); track a.id) {
               <tr>
                 <th scope="row">
-                  <a [routerLink]="['/analisis', a.id]">{{
-                    a.article?.title || 'Análisis #' + a.id
-                  }}</a>
+                  <a [routerLink]="['/analisis', a.id]">
+                    {{ a.article?.title || 'Análisis #' + a.id }}
+                  </a>
+                  @if (a.article?.title_source === 'ai') {
+                    <span class="title-source">Título sugerido por IA</span>
+                  }
                 </th>
                 <td>
                   <span class="badge" [class]="'badge ' + statusState(a.status)">{{
@@ -131,6 +134,13 @@ import { Analysis } from '../core/models';
     .pagination span {
       color: var(--muted);
       font-size: 0.92rem;
+    }
+    .title-source {
+      display: block;
+      margin-top: 0.2rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 400;
     }
     @media (max-width: 560px) {
       .pagination {

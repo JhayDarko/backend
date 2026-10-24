@@ -118,6 +118,13 @@ class CredibilityScoreServiceTest extends TestCase
         $this->assertSame(95.0, $scoreResult->sourceQualityScore);
         $this->assertSame(95.0, $scoreResult->consistencyScore);
         $this->assertTrue($scoreResult->breakdown['signals']['language_signal_available']);
+
+        $article->update(['title' => 'Otro título completamente distinto']);
+        $analysis->setRelation('article', $article->fresh());
+        $scoreWithoutOriginalTitle = $this->service->calculate($analysis, $sourceAnalysis, $analystSynthesis);
+
+        $this->assertSame($scoreResult->finalScore, $scoreWithoutOriginalTitle->finalScore);
+        $this->assertSame($scoreResult->finalVerdict, $scoreWithoutOriginalTitle->finalVerdict);
     }
 
     public function test_calculates_low_credibility_score_for_false_content(): void

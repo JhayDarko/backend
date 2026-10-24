@@ -18,6 +18,7 @@ class Article extends Model
         'url',
         'canonical_url',
         'title',
+        'title_source',
         'description',
         'content',
         'author_name',

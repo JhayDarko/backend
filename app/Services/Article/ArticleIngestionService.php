@@ -53,6 +53,7 @@ final class ArticleIngestionService
                     'url' => $data->url,
                     'canonical_url' => $data->canonicalUrl,
                     'title' => $data->title,
+                    'title_source' => 'extracted',
                     'description' => $data->description,
                     'content' => $data->content,
                     'author_name' => $data->authorName,
@@ -76,10 +77,17 @@ final class ArticleIngestionService
         $content = trim($content);
         $contentHash = hash('sha256', $content);
 
-        $derivedTitle = $title ? trim($title) : mb_substr($content, 0, 80).(mb_strlen($content) > 80 ? '...' : '');
+        $submissionType = $metadata['submission_type'] ?? 'raw_text';
+        $cleanTitle = is_string($title) ? trim($title) : '';
+        $titleSource = $cleanTitle === ''
+            ? 'fallback'
+            : ($submissionType === 'image_ocr' ? 'extracted' : 'user');
+        $derivedTitle = $cleanTitle !== ''
+            ? $cleanTitle
+            : $this->fallbackTitle($submissionType);
 
         try {
-            return DB::transaction(function () use ($userId, $contentHash, $derivedTitle, $content, $authorName, $metadata) {
+            return DB::transaction(function () use ($userId, $contentHash, $derivedTitle, $titleSource, $content, $authorName, $metadata) {
                 $existingArticle = $this->articles->findDuplicateForUser(
                     $userId,
                     null,
@@ -96,6 +104,7 @@ final class ArticleIngestionService
                     'url' => null,
                     'canonical_url' => null,
                     'title' => $derivedTitle,
+                    'title_source' => $titleSource,
                     'description' => null,
                     'content' => $content,
                     'author_name' => $authorName ? trim($authorName) : null,
@@ -112,5 +121,12 @@ final class ArticleIngestionService
                 $contentHash,
             ) ?? throw $exception;
         }
+    }
+
+    private function fallbackTitle(mixed $submissionType): string
+    {
+        $prefix = $submissionType === 'image_ocr' ? 'Imagen analizada' : 'Texto pegado';
+
+        return $prefix.' · '.now()->format('d/m/Y');
     }
 }

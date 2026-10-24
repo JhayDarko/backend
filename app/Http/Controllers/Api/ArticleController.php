@@ -10,6 +10,7 @@ use App\Services\Article\ArticleIngestionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\ValidationException;
 
 final class ArticleController extends Controller
 {
@@ -59,6 +60,29 @@ final class ArticleController extends Controller
         $article->load(['source', 'analyses' => fn ($q) => $q->where('user_id', request()->user()->id), 'analyses.score']);
 
         return new ArticleResource($article);
+    }
+
+    public function updateTitle(Request $request, Article $article): ArticleResource
+    {
+        $this->authorize('updateTitle', $article);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:150'],
+        ]);
+        $title = trim(preg_replace('/[\p{Cc}\p{Cf}]/u', '', $data['title']) ?? '');
+
+        if ($title === '') {
+            throw ValidationException::withMessages([
+                'title' => 'El título no puede estar vacío.',
+            ]);
+        }
+
+        $article->update([
+            'title' => $title,
+            'title_source' => 'user',
+        ]);
+
+        return new ArticleResource($article->refresh());
     }
 
     public function store(

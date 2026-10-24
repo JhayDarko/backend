@@ -25,17 +25,19 @@ final class ExtractedClaimsResponse implements Countable, IteratorAggregate
         public readonly array $sources,
         public readonly array $redFlags,
         public readonly array $rawData = [],
+        public readonly ?string $suggestedTitle = null,
     ) {}
 
     /**
      * Create from API response array.
      *
      * @param array{
-     *     summary: string,
-     *     claims: array<array{text: string, importance: float, verifiable: bool, type: string, context: string}>,
-     *     entities: array<array{name: string, type: string}>,
-     *     sources: array<array{name: string, url?: string}>,
-     *     red_flags: array<string>
+     *     summary?: string,
+     *     claims?: array<array{text: string, importance: float, verifiable: bool, type: string, context: string}>,
+     *     entities?: array<array{name: string, type: string}>,
+     *     sources?: array<array{name: string, url?: string}>,
+     *     red_flags?: array<string>,
+     *     suggested_title?: string|null
      * } $data
      */
     public static function from(array $data): self
@@ -62,6 +64,7 @@ final class ExtractedClaimsResponse implements Countable, IteratorAggregate
             sources: $sources,
             redFlags: $data['red_flags'] ?? [],
             rawData: $data,
+            suggestedTitle: $data['suggested_title'] ?? null,
         );
     }
 

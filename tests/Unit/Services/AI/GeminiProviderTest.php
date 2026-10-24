@@ -75,6 +75,7 @@ class GeminiProviderTest extends TestCase
                                         ['name' => 'NASA', 'url' => 'https://nasa.gov'],
                                     ],
                                     'red_flags' => [],
+                                    'suggested_title' => 'Climate update',
                                 ]),
                             ],
                         ],
@@ -99,6 +100,13 @@ class GeminiProviderTest extends TestCase
         $this->assertSame('Global temperatures are rising.', $response->claims[0]->text);
         $this->assertTrue($response->claims[0]->verifiable);
         $this->assertSame('factual', $response->claims[0]->type);
+        $this->assertSame('Climate update', $response->suggestedTitle);
+        $request = Http::recorded()->first()[0] ?? null;
+        $this->assertSame('STRING', $request?->data()['generationConfig']['responseSchema']['properties']['suggested_title']['type']);
+        $this->assertTrue(str_contains(
+            $request?->data()['contents'][0]['parts'][0]['text'] ?? '',
+            'untrusted data',
+        ));
     }
 
     #[Test]
@@ -157,6 +165,7 @@ class GeminiProviderTest extends TestCase
                     'entities' => [],
                     'sources' => [],
                     'red_flags' => [],
+                    'suggested_title' => null,
                 ])]]],
             ]],
         ];
@@ -204,6 +213,7 @@ class GeminiProviderTest extends TestCase
             'entities' => [],
             'sources' => [],
             'red_flags' => [],
+            'suggested_title' => null,
         ])]]]]]];
 
         Http::fake([
@@ -272,6 +282,7 @@ class GeminiProviderTest extends TestCase
                                         'entities' => [],
                                         'sources' => [],
                                         'red_flags' => [],
+                                        'suggested_title' => null,
                                     ]),
                                 ],
                             ],
@@ -311,6 +322,7 @@ class GeminiProviderTest extends TestCase
                                         'entities' => [],
                                         'sources' => [],
                                         'red_flags' => [],
+                                        'suggested_title' => null,
                                     ]),
                                 ],
                             ],
@@ -364,6 +376,7 @@ class GeminiProviderTest extends TestCase
                                         'entities' => [],
                                         'sources' => [],
                                         'red_flags' => ['Potential bias detected'],
+                                        'suggested_title' => null,
                                     ]),
                                 ],
                             ],
@@ -398,6 +411,7 @@ class GeminiProviderTest extends TestCase
                                         'entities' => [],
                                         'sources' => [],
                                         'red_flags' => [],
+                                        'suggested_title' => null,
                                     ]),
                                 ],
                             ],

@@ -61,7 +61,7 @@ class ClassifyArticleJob implements ShouldQueue
 
         try {
             $result = $classifierProvider->classify(
-                $article->title ?? '',
+                '',
                 $article->content ?? '',
                 $article->description ?? null,
             );

@@ -1,0 +1,126 @@
+.back-link {
+  margin-bottom: 1.1rem;
+}
+.back-link a {
+  font-weight: 600;
+  text-decoration: none;
+}
+.back-link a:hover {
+  text-decoration: underline;
+}
+.analysis-page .page-heading h1 {
+  max-width: 30ch;
+  overflow-wrap: anywhere;
+}
+.title-source {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.title-edit-trigger {
+  margin-top: 0.75rem;
+}
+.title-edit-form {
+  display: grid;
+  max-width: 560px;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.title-edit-form .row {
+  margin-top: 0.2rem;
+}
+.progress-card {
+  border-top: 3px solid var(--cobalto);
+}
+.progress-card .eyebrow {
+  margin-bottom: 0.25rem;
+}
+.progress-card h2 {
+  margin-bottom: 0.8rem;
+}
+.progress-card progress {
+  margin: 0.3rem 0;
+}
+.verdict {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  border-width: 2px;
+}
+.verdict.good {
+  border-color: var(--turquesa);
+}
+.verdict.bad {
+  border-color: var(--ladrillo);
+}
+.verdict.warn {
+  border-color: var(--ambar);
+}
+.grow {
+  flex: 1 1 240px;
+}
+.score {
+  --p: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: conic-gradient(var(--cobalto) calc(var(--p) * 1%), var(--niebla) 0);
+  position: relative;
+}
+.score::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: var(--card);
+}
+.score span {
+  position: relative;
+  font-family: var(--font-head);
+  font-size: 2rem;
+  font-weight: 700;
+}
+.score small {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.claims {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 1.25rem;
+}
+.claims .card {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+summary::marker {
+  color: var(--cobalto);
+}
+summary:hover .claim-text {
+  color: var(--cobalto);
+}
+.claim-text {
+  flex: 1 1 280px;
+  font-weight: 600;
+}
+.detail {
+  margin-top: 0.75rem;
+}

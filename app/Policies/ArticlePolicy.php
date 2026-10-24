@@ -11,4 +11,9 @@ class ArticlePolicy
     {
         return Article::query()->visibleTo($user)->whereKey($article->getKey())->exists();
     }
+
+    public function updateTitle(User $user, Article $article): bool
+    {
+        return $article->created_by === $user->id;
+    }
 }

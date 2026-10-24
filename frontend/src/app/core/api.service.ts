@@ -23,6 +23,12 @@ export class ApiService {
     return this.http.post<{ data: Article }>(`${API}/articles/ocr`, form).pipe(map((r) => r.data));
   }
 
+  updateArticleTitle(articleId: number, title: string): Observable<Article> {
+    return this.http
+      .patch<{ data: Article }>(`${API}/articles/${articleId}`, { title })
+      .pipe(map((r) => r.data));
+  }
+
   startAnalysis(articleId: number): Observable<Analysis> {
     return this.http.post<{ data: Analysis }>(`${API}/articles/${articleId}/analyze`, {}).pipe(map((r) => r.data));
   }

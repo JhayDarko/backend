@@ -20,6 +20,7 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::put('/auth/preferences', [AuthController::class, 'updatePreferences']);
         Route::get('/auth/quota', AnalysisQuotaController::class);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
@@ -44,6 +45,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:10,1');
         Route::get('/articles/{article}', [ArticleController::class, 'show'])
             ->middleware('throttle:60,1');
+        Route::patch('/articles/{article}', [ArticleController::class, 'updateTitle'])
+            ->middleware('throttle:20,1');
         Route::post('/articles/{article}/analyze', [ArticleAnalysisController::class, 'store'])
             ->middleware('throttle:20,1');
         Route::get('/analyses', [AnalysisController::class, 'index'])

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Contracts\AiProviderInterface;
 use App\Exceptions\AiProviderException;
 use App\Models\Analysis;
+use App\Models\Article;
 use App\Services\Verification\ClaimExtractionService;
 use Illuminate\Bus\Batch;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -63,6 +64,19 @@ class ExtractClaimsJob implements ShouldQueue
 
         try {
             $result = $claimExtractionService->extract($article);
+
+            if ($result->suggestedTitle !== null) {
+                $updated = Article::query()
+                    ->whereKey($article->getKey())
+                    ->where('title_source', 'fallback')
+                    ->update([
+                        'title' => $result->suggestedTitle,
+                        'title_source' => 'ai',
+                    ]);
+                if ($updated > 0) {
+                    $article->refresh();
+                }
+            }
 
             $persisted = $claimExtractionService->persistClaims($analysis, $result);
 
