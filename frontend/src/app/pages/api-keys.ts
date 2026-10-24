@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { A11yService } from '../core/a11y.service';
 import { ApiService } from '../core/api.service';
 import { errorMessage } from '../core/http';
@@ -8,7 +9,7 @@ import { ApiKey } from '../core/models';
 
 @Component({
   selector: 'app-api-keys',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, RouterLink],
   template: `
     <section aria-labelledby="t">
       <header class="page-heading">
@@ -19,7 +20,7 @@ import { ApiKey } from '../core/models';
           Consulta la
           <a href="/api-docs/openapi.yaml" target="_blank" rel="noopener noreferrer"
             >especificación OpenAPI<span class="sr-only"> (pestaña nueva)</span></a
-          >.
+          >. Lee también la <a routerLink="/documentacion-api">guía rápida de la API pública</a>.
         </p>
       </header>
 

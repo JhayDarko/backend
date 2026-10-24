@@ -94,7 +94,11 @@ import { AuthService } from './core/auth.service';
         FactNode es una ayuda para contrastar información: no reemplaza tu criterio. Revisa siempre
         las fuentes enlazadas.
       </p>
-      <p><a routerLink="/privacidad">Privacidad y datos</a></p>
+      <p>
+        <a routerLink="/privacidad">Privacidad y datos</a>
+        <span aria-hidden="true"> · </span>
+        <a routerLink="/documentacion-api">Documentación de la API pública</a>
+      </p>
     </footer>
 
     <div class="sr-only" role="status" aria-live="polite">{{ a11y.announcement() }}</div>
@@ -204,7 +208,7 @@ import { AuthService } from './core/auth.service';
       place-items: center;
       border-radius: 50%;
       background: var(--cobalto);
-      color: #fff;
+      color: var(--cobalto-contrast);
       font-family: var(--font-head);
       font-weight: 700;
     }

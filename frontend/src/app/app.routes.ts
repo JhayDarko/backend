@@ -33,6 +33,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/api-keys').then((m) => m.ApiKeysPage),
   },
   {
+    path: 'documentacion-api',
+    title: 'Documentación de la API pública · FactNode',
+    loadComponent: () => import('./pages/api-docs').then((m) => m.ApiDocsPage),
+  },
+  {
     path: 'preferencias',
     title: 'Preferencias · FactNode',
     canActivate: [authGuard],

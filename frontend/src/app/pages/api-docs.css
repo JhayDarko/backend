@@ -1,0 +1,61 @@
+.api-docs section + section {
+  margin-top: 2rem;
+}
+.api-docs h2 {
+  margin-bottom: 0.55rem;
+}
+.api-docs h3 {
+  margin: 1.2rem 0 0.45rem;
+}
+.api-docs p {
+  max-width: 78ch;
+}
+.api-docs section > p code,
+.api-docs td code {
+  font-size: 0.95em;
+}
+.example {
+  margin-top: 1.4rem;
+}
+.code-example {
+  position: relative;
+  margin-top: 0.6rem;
+}
+.code-example pre,
+.response-example {
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0b1626;
+  color: #eef2f7;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  tab-size: 2;
+}
+.code-example pre,
+.response-example {
+  padding: 1rem;
+}
+.code-example code,
+.response-example code {
+  color: inherit;
+  white-space: pre;
+}
+.code-example .btn {
+  margin-top: 0.55rem;
+}
+.copy-feedback {
+  margin-left: 0.65rem;
+  color: var(--muted);
+}
+.table-wrap {
+  margin-top: 0.8rem;
+}
+html.high-contrast .code-example pre,
+html.high-contrast .response-example {
+  border: 2px solid #fff;
+  background: #000;
+  color: #fff;
+}
