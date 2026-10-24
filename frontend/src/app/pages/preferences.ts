@@ -1,13 +1,15 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { A11yPrefs, A11yService } from '../core/a11y.service';
+import { errorMessage } from '../core/http';
+import { GoogleIdentityButton } from './auth';
 
 type ThemeChoice = A11yPrefs['theme'];
 
 @Component({
   selector: 'app-preferences',
-  imports: [RouterLink],
+  imports: [RouterLink, GoogleIdentityButton],
   template: `
     <section class="preferences-page" aria-labelledby="page-title">
       <header class="page-heading">
@@ -182,6 +184,33 @@ type ThemeChoice = A11yPrefs['theme'];
           }
 
           <div class="profile-actions">
+            <h3>Acceso con Google</h3>
+            @if (auth.user()?.auth_methods?.includes('google')) {
+              <p class="setting-description">Tu cuenta de Google está vinculada.</p>
+              @if (auth.user()?.auth_methods?.includes('password')) {
+                <button
+                  type="button"
+                  class="btn secondary"
+                  [disabled]="googleBusy()"
+                  (click)="unlinkGoogle()"
+                >
+                  Desvincular Google
+                </button>
+              } @else {
+                <p class="hint">Google es tu único método de acceso y no se puede desvincular.</p>
+              }
+            } @else {
+              <p class="setting-description">
+                Vincula Google para iniciar sesión con esta cuenta.
+              </p>
+              <app-google-identity-button (credential)="linkGoogle($event)" />
+            }
+            @if (googleError()) {
+              <p class="alert" role="alert">{{ googleError() }}</p>
+            }
+          </div>
+
+          <div class="profile-actions">
             <p class="setting-description">
               Tus preferencias visuales se guardan localmente y no modifican los datos de tu cuenta.
             </p>
@@ -195,6 +224,14 @@ type ThemeChoice = A11yPrefs['theme'];
 export class PreferencesPage {
   protected readonly auth = inject(AuthService);
   protected readonly a11y = inject(A11yService);
+  protected readonly googleBusy = signal(false);
+  protected readonly googleError = signal('');
+
+  constructor() {
+    this.auth.loadCurrentUser().subscribe({
+      error: (error) => this.googleError.set(errorMessage(error, 'No se pudo cargar el perfil.')),
+    });
+  }
 
   protected readonly minFontScale = 0.9;
   protected readonly maxFontScale = 1.5;
@@ -210,5 +247,29 @@ export class PreferencesPage {
 
   protected fontPercent(): number {
     return Math.round(this.a11y.prefs().fontScale * 100);
+  }
+
+  protected linkGoogle(credential: string): void {
+    this.googleBusy.set(true);
+    this.googleError.set('');
+    this.auth.linkGoogle(credential).subscribe({
+      next: () => this.googleBusy.set(false),
+      error: (error) => {
+        this.googleBusy.set(false);
+        this.googleError.set(errorMessage(error, 'No se pudo vincular Google.'));
+      },
+    });
+  }
+
+  protected unlinkGoogle(): void {
+    this.googleBusy.set(true);
+    this.googleError.set('');
+    this.auth.unlinkGoogle().subscribe({
+      next: () => this.googleBusy.set(false),
+      error: (error) => {
+        this.googleBusy.set(false);
+        this.googleError.set(errorMessage(error, 'No se pudo desvincular Google.'));
+      },
+    });
   }
 }

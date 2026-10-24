@@ -1,11 +1,14 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { provideRouter, Router, withInMemoryScrolling } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AuthService } from '../core/auth.service';
 import { PreferencesPage } from './preferences';
 
 describe('PreferencesPage', () => {
+  const user = { id: 1, name: 'Ana', email: 'ana@example.com', auth_methods: ['password'] as const };
+
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.className = '';
@@ -19,7 +22,8 @@ describe('PreferencesPage', () => {
         {
           provide: AuthService,
           useValue: {
-            user: signal({ id: 1, name: 'Ana', email: 'ana@example.com' }),
+            user: signal(user),
+            loadCurrentUser: vi.fn(() => of(user)),
             logout: vi.fn(),
           },
         },

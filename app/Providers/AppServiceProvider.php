@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\AiProviderInterface;
 use App\Contracts\Analyst\AnalystProviderInterface;
 use App\Contracts\Article\HostResolverInterface;
+use App\Contracts\Auth\GoogleIdTokenVerifierInterface;
 use App\Contracts\ClassifierProviderInterface;
 use App\Contracts\FactCheck\FactCheckProviderInterface;
 use App\Contracts\Search\SearchProviderInterface;
@@ -13,6 +14,7 @@ use App\Services\AI\Providers\BertFakeNewsProvider;
 use App\Services\AI\Providers\FallbackAiProvider;
 use App\Services\AI\Providers\GeminiAnalystProvider;
 use App\Services\Article\SystemHostResolver;
+use App\Services\Auth\GoogleIdTokenVerifier;
 use App\Services\FactCheck\GoogleFactCheckProvider;
 use App\Services\Search\SearchProviderManager;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -36,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ClassifierProviderInterface::class, BertFakeNewsProvider::class);
         $this->app->bind(FactCheckProviderInterface::class, GoogleFactCheckProvider::class);
         $this->app->singleton(SearchProviderInterface::class, SearchProviderManager::class);
+        $this->app->singleton(GoogleIdTokenVerifierInterface::class, GoogleIdTokenVerifier::class);
     }
 
     /**

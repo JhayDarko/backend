@@ -37,6 +37,39 @@ describe('AuthService + interceptor', () => {
     request.flush({ data: [] });
   });
 
+  it('sends the Google ID credential to the API and stores only the Sanctum token', () => {
+    auth.googleLogin('google-id-token').subscribe();
+    const request = http.expectOne('/api/v1/auth/google');
+
+    expect(request.request.body).toEqual({ credential: 'google-id-token' });
+    request.flush({
+      data: { id: 2, name: 'Ana', email: 'ana@example.com', auth_methods: ['google'] },
+      token: 'sanctum-token',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    expect(auth.token()).toBe('sanctum-token');
+    expect(localStorage.getItem('google-id-token')).toBeNull();
+  });
+
+  it('updates the current user after linking and unlinking Google', () => {
+    login();
+
+    auth.linkGoogle('google-id-token').subscribe();
+    const linkRequest = http.expectOne('/api/v1/auth/google/link');
+    expect(linkRequest.request.body).toEqual({ credential: 'google-id-token' });
+    linkRequest.flush({
+      data: { id: 1, name: 'Ana', email: 'a@b.co', auth_methods: ['password', 'google'] },
+    });
+    expect(auth.user()?.auth_methods).toEqual(['password', 'google']);
+
+    auth.unlinkGoogle().subscribe();
+    http.expectOne('/api/v1/auth/google').flush({
+      data: { id: 1, name: 'Ana', email: 'a@b.co', auth_methods: ['password'] },
+    });
+    expect(auth.user()?.auth_methods).toEqual(['password']);
+  });
+
   it('drops the session when the API answers 401', () => {
     login();
 

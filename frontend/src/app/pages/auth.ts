@@ -1,13 +1,46 @@
-import { Component, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, inject, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { A11yService } from '../core/a11y.service';
 import { AuthService } from '../core/auth.service';
 import { errorMessage } from '../core/http';
+import { GoogleIdentityService } from '../core/google-identity.service';
+
+@Component({
+  selector: 'app-google-identity-button',
+  template: `
+    <div class="google-signin" #host role="group" aria-label="Continuar con Google"></div>
+    @if (message()) {
+      <p class="hint" role="status">{{ message() }}</p>
+    } @else {
+      <p class="hint">Si cancelas la ventana de Google, puedes continuar con correo y contraseña.</p>
+    }
+  `,
+  styleUrl: './auth.css',
+})
+export class GoogleIdentityButton implements AfterViewInit, OnDestroy {
+  protected readonly credential = output<string>();
+  protected readonly message = signal('');
+  private readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
+  private readonly google = inject(GoogleIdentityService);
+  private cleanup: (() => void) | null = null;
+
+  ngAfterViewInit(): void {
+    this.cleanup = this.google.mountButton(
+      this.host().nativeElement,
+      (credential) => this.credential.emit(credential),
+      (message) => this.message.set(message),
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.cleanup?.();
+  }
+}
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, GoogleIdentityButton],
   template: `
     <section class="card auth-card narrow" aria-labelledby="t">
       <div class="auth-brand" aria-hidden="true">
@@ -70,6 +103,8 @@ import { errorMessage } from '../core/http';
           {{ busy() ? 'Ingresando…' : 'Ingresar' }}
         </button>
       </form>
+      <div class="auth-divider"><span>o</span></div>
+      <app-google-identity-button (credential)="continueWithGoogle($event)" />
       <p class="muted">¿No tienes cuenta? <a routerLink="/registro">Crea una</a>.</p>
     </section>
   `,
@@ -104,11 +139,26 @@ export class LoginPage {
       },
     });
   }
+
+  protected continueWithGoogle(credential: string): void {
+    this.error.set('');
+    this.busy.set(true);
+    this.auth.googleLogin(credential).subscribe({
+      next: () => {
+        this.a11y.announce('Sesión iniciada con Google');
+        void this.router.navigate(['/']);
+      },
+      error: (error) => {
+        this.busy.set(false);
+        this.error.set(errorMessage(error, 'No se pudo iniciar sesión con Google.'));
+      },
+    });
+  }
 }
 
 @Component({
   selector: 'app-register',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, GoogleIdentityButton],
   template: `
     <section class="card auth-card narrow" aria-labelledby="t">
       <div class="auth-brand" aria-hidden="true">
@@ -191,6 +241,8 @@ export class LoginPage {
           {{ busy() ? 'Creando…' : 'Crear cuenta' }}
         </button>
       </form>
+      <div class="auth-divider"><span>o</span></div>
+      <app-google-identity-button (credential)="continueWithGoogle($event)" />
       <p class="muted">¿Ya tienes cuenta? <a routerLink="/ingresar">Ingresa</a>.</p>
     </section>
   `,
@@ -223,6 +275,18 @@ export class RegisterPage {
       error: (e) => {
         this.busy.set(false);
         this.error.set(errorMessage(e, 'No se pudo crear la cuenta.'));
+      },
+    });
+  }
+
+  protected continueWithGoogle(credential: string): void {
+    this.error.set('');
+    this.busy.set(true);
+    this.auth.googleLogin(credential).subscribe({
+      next: () => void this.router.navigate(['/']),
+      error: (error) => {
+        this.busy.set(false);
+        this.error.set(errorMessage(error, 'No se pudo crear la cuenta con Google.'));
       },
     });
   }

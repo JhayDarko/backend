@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:auth-register');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/auth/google', [AuthController::class, 'google'])->middleware('throttle:10,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -21,6 +22,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:auth-refresh');
         Route::put('/auth/password', [AuthController::class, 'changePassword']);
+        Route::post('/auth/google/link', [AuthController::class, 'linkGoogle'])->middleware('throttle:10,1');
+        Route::delete('/auth/google', [AuthController::class, 'unlinkGoogle']);
 
         Route::get('/api-keys', [ApiKeyController::class, 'index']);
         Route::post('/api-keys', [ApiKeyController::class, 'store'])->middleware('throttle:10,1');

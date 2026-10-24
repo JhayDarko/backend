@@ -476,10 +476,12 @@ usan esta expiración ni estos límites.
 |---|---|---|
 | `POST /auth/register` | Crea cuenta (contraseña ≥ 8 con letras y números) y devuelve `token` | 10/min |
 | `POST /auth/login` | Inicia sesión y devuelve `token` | 10/min |
+| `POST /auth/google` | Verifica una credencial de Google; inicia sesión o crea una cuenta passwordless | 10/min |
 | `GET /auth/me` · `POST /auth/logout` | Usuario actual · revoca el token actual | — |
 | `POST /auth/refresh` | Rota el token actual; devuelve `token` y `expires_at` | 10/min |
 | `POST /auth/logout-all` | Revoca todos los tokens de sesión del usuario | — |
 | `PUT /auth/password` | Cambia la contraseña y revoca los demás tokens | — |
+| `POST /auth/google/link` · `DELETE /auth/google` | Vincula Google con una sesión activa · desvincula si queda otro método de acceso | 10/min al vincular |
 | `POST /articles/ocr` | Sube la captura; PaddleOCR extrae texto y Gemini organiza solo el OCR antes de crear el artículo. El análisis excluye perfil/interfaz y conserva sus textos en metadatos; errores de proveedor `ocr_unavailable`/`gemini_unavailable` (`503`) | 10/min |
 | `GET /analyses/{id}/report/pdf` · `/report/json` | Informe descargable (solo análisis completados; `409` si no) | 20–30/min |
 | `GET /sources` · `GET /sources/{id}/profile` | Credibilidad histórica de los medios según los análisis del sistema | 60/min |
@@ -507,6 +509,40 @@ tildes y ñ. Paginación por páginas (por defecto) o **por cursor** (`next_curs
 historiales grandes.
 
 Archivo `requests.http` incluye ejemplos listos para usar.
+
+### Acceso con Google
+
+Google Identity Services entrega una credencial de ID al navegador; la aplicación la envía
+en el cuerpo JSON (`credential`) a `POST /api/v1/auth/google` o, con sesión activa, a
+`POST /api/v1/auth/google/link`. El backend verifica la firma y los claims `iss`, `aud`,
+`exp` y `email_verified` mediante `google/auth`. No se usan redirecciones OAuth ni se guarda
+la credencial de Google. La configuración del script GIS se carga bajo demanda en las
+páginas de ingreso, registro y Preferencias (esta última para vincular la cuenta).
+
+Para configurar Google:
+
+1. En [Google Auth Platform](https://console.cloud.google.com/auth/clients), crea un cliente
+   OAuth de tipo **Web application** y configura la pantalla de consentimiento y los dominios
+   autorizados.
+2. Añade el origen completo del frontend en **Authorized JavaScript origins** (esquema y
+   hostname, sin ruta). En desarrollo, usa el origen que sirve Angular; en producción, el
+   origen público real de FactNode. Este flujo usa el callback de GIS, por lo que no requiere
+   un redirect URI.
+3. Configura el mismo client ID público como `GOOGLE_CLIENT_ID` en el backend y en
+   `googleClientId` de `frontend/src/environments/environment.ts`. No pongas secretos en el
+   frontend; el client ID está diseñado para ser público.
+4. Si el despliegue aplica CSP, permite el script de
+   `https://accounts.google.com/gsi/client`, los frames de `https://accounts.google.com/gsi/`
+   y las conexiones a `https://accounts.google.com/gsi/`. Valida la política final y
+   `Cross-Origin-Opener-Policy` con la guía vigente de Google Identity Services antes de
+   desplegar; Google documenta que los requisitos pueden variar con FedCM y el modo de
+   integración.
+
+Si el correo verificado de Google ya pertenece a una cuenta local, el inicio de sesión no
+la vincula automáticamente: responde `409 account_exists`; ingresa con contraseña y enlaza
+Google desde Preferencias. Una cuenta Google sin contraseña no puede desvincular su único
+método de acceso. Si Google no está configurado o no se puede verificar, el endpoint responde
+`503 google_auth_unavailable`; las pruebas usan un verificador falso y no acceden a Google.
 
 ### 10.1 API pública (API keys y planes)
 
@@ -620,6 +656,8 @@ docker-compose.yml           Desarrollo: PostgreSQL, Redis, BERT y PaddleOCR
 | `CACHE_STORE` | `database` |
 | `QUEUE_DEV_WORKERS` | `3` |
 | `AUTH_TOKEN_TTL_MINUTES` | `10080` (7 días) para tokens de sesión web; no afecta las API keys públicas |
+| `GOOGLE_CLIENT_ID` | Client ID OAuth de tipo Web para validar credenciales GIS en el backend |
+| `frontend/src/environments/environment.ts` → `googleClientId` | El mismo Client ID público, compilado en la SPA |
 
 **IA**
 

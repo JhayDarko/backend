@@ -1,7 +1,7 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { EMPTY, Observable, catchError, finalize, shareReplay, tap, throwError } from 'rxjs';
+import { EMPTY, Observable, catchError, finalize, map, shareReplay, tap, throwError } from 'rxjs';
 import { User } from './models';
 
 const TOKEN_KEY = 'factnode.token';
@@ -64,6 +64,30 @@ export class AuthService {
     return this.http
       .post<AuthResponse>('/api/v1/auth/register', { name, email, password, password_confirmation: confirmation })
       .pipe(tap((r) => this.store(r)));
+  }
+
+  googleLogin(credential: string): Observable<AuthResponse> {
+    return this.http
+      .post<AuthResponse>('/api/v1/auth/google', { credential })
+      .pipe(tap((response) => this.store(response)));
+  }
+
+  linkGoogle(credential: string): Observable<User> {
+    return this.http
+      .post<{ data: User }>('/api/v1/auth/google/link', { credential })
+      .pipe(map((response) => this.updateUser(response.data)));
+  }
+
+  unlinkGoogle(): Observable<User> {
+    return this.http
+      .delete<{ data: User }>('/api/v1/auth/google')
+      .pipe(map((response) => this.updateUser(response.data)));
+  }
+
+  loadCurrentUser(): Observable<User> {
+    return this.http.get<{ data: User }>('/api/v1/auth/me').pipe(
+      map((response) => this.updateUser(response.data)),
+    );
   }
 
   logout(): void {
@@ -228,5 +252,11 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  private updateUser(user: User): User {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.user.set(user);
+    return user;
   }
 }

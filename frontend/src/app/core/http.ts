@@ -12,6 +12,12 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
   gemini_unavailable: 'El servicio de clasificación de texto no está disponible. Inténtalo de nuevo.',
   internal_error: 'Ocurrió un error interno. Inténtalo de nuevo más tarde.',
   token_expired: 'Tu sesión expiró. Ingresa de nuevo.',
+  account_exists: 'Ya existe una cuenta con este correo. Ingresa con contraseña y vincula Google desde Preferencias.',
+  google_auth_unavailable: 'El inicio de sesión con Google no está disponible. Inténtalo más tarde.',
+  google_token_invalid: 'La credencial de Google no es válida o ha expirado.',
+  google_email_not_verified: 'Google debe confirmar el correo electrónico antes de iniciar sesión.',
+  google_account_already_linked: 'Esta cuenta de Google ya está vinculada a otra cuenta de FactNode.',
+  last_auth_method: 'No puedes desvincular Google porque es tu único método de acceso.',
 };
 
 /** Adds the bearer token and drops the session when the API answers 401. */

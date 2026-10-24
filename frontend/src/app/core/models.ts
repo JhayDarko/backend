@@ -2,6 +2,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  auth_methods?: ('password' | 'google')[];
 }
 
 export interface Article {
